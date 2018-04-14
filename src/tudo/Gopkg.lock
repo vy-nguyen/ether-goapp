@@ -19,45 +19,6 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/btcsuite/btcd"
-  packages = ["btcec"]
-  revision = "2be2f12b358dc57d70b8f501b00be450192efbc3"
-
-[[projects]]
-  name = "github.com/ethereum/go-ethereum"
-  packages = [
-    ".",
-    "common",
-    "common/hexutil",
-    "common/math",
-    "core/types",
-    "crypto",
-    "crypto/secp256k1",
-    "crypto/sha3",
-    "ethdb",
-    "log",
-    "metrics",
-    "params",
-    "rlp",
-    "trie"
-  ]
-  revision = "329ac18ef617d0238f71637bffe78f028b0f13f7"
-  version = "v1.8.3"
-
-[[projects]]
-  name = "github.com/go-stack/stack"
-  packages = ["."]
-  revision = "259ab82a6cad3992b4e21ff5cac294ccb06474bc"
-  version = "v1.7.0"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/golang/snappy"
-  packages = ["."]
-  revision = "553a641470496b2327abcac10b36396bd98e45c9"
-
-[[projects]]
-  branch = "master"
   name = "github.com/gopherjs/gopherjs"
   packages = ["js"]
   revision = "558a9132744c22476178edf3126fd35a9754f565"
@@ -88,34 +49,9 @@
   revision = "9e8dc3f972df6c8fcc0375ef492c24d0bb204857"
   version = "1.6.3"
 
-[[projects]]
-  branch = "master"
-  name = "github.com/syndtr/goleveldb"
-  packages = [
-    "leveldb",
-    "leveldb/cache",
-    "leveldb/comparer",
-    "leveldb/errors",
-    "leveldb/filter",
-    "leveldb/iterator",
-    "leveldb/journal",
-    "leveldb/memdb",
-    "leveldb/opt",
-    "leveldb/storage",
-    "leveldb/table",
-    "leveldb/util"
-  ]
-  revision = "714f901b98fdb3aa954b4193d8cbd64a28d80cad"
-
-[[projects]]
-  branch = "v2"
-  name = "gopkg.in/karalabe/cookiejar.v2"
-  packages = ["collections/prque"]
-  revision = "8dcd6a7f4951f6ff3ee9cbb919a06d8925822e57"
-
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "3e750d1042eda2a0f7d40adf178b8b7363f88f2257df7d02a3ac7ad3bcfc66fa"
+  inputs-digest = "9e242ef2da883faa526d0301106c1de8202a8b14eecebf2470863a2e60ea195b"
   solver-name = "gps-cdcl"
   solver-version = 1
