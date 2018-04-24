@@ -1,0 +1,23 @@
+package models
+
+import ()
+
+type Account struct {
+	OwnerUuid  string `orm:"pk;size(64)"`
+	PublicName string `orm:"size(128)"`
+	Account    string `orm:"size(128)"`
+}
+
+type AccountKey struct {
+	Account   string `orm:"pk;size(64)"`
+	OwnerUuid string `orm:"index;size(64)"`
+	PrivKey   string `orm:"size(512)"`
+}
+
+type Transaction struct {
+	OwnerUuid   string `orm:"pk;size(64)"`
+	Account     string `orm:"size(64)"`
+	PeerAccount string `orm:"size(64)"`
+	BlockHash   string `orm:"size(64)"`
+	BlockNumber uint64
+}

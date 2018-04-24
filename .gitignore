@@ -1,4 +1,7 @@
 src/tudo/tudo
 src/tudo/vendor
 pkg
-
+cscope.*
+tags
+src/tudo/cscope.*
+src/tudo/tags
