@@ -30,8 +30,8 @@
   version = "1.9.2"
 
 [[constraint]]
-  branch = "master"
   name = "github.com/ethereum/go-ethereum"
+  version = "^1.8.6"
 
 [[constraint]]
   name = "github.com/gizak/termui"
@@ -63,4 +63,3 @@
 
 [prune]
   go-tests = true
-  unused-packages = true

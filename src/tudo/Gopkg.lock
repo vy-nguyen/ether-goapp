@@ -58,7 +58,6 @@
   version = "v0.9.0"
 
 [[projects]]
-  branch = "master"
   name = "github.com/ethereum/go-ethereum"
   packages = [
     ".",
@@ -99,7 +98,6 @@
     "eth/gasprice",
     "eth/tracers",
     "eth/tracers/internal/tracers",
-    "ethclient",
     "ethdb",
     "ethstats",
     "event",
@@ -128,7 +126,8 @@
     "trie",
     "whisper/whisperv6"
   ]
-  revision = "744428cb03ea8de8f219708f57d2e197acb6689b"
+  revision = "12683feca7483f0b0bf425c3c520e2724f69f2aa"
+  version = "v1.8.6"
 
 [[projects]]
   name = "github.com/fatih/color"
@@ -476,6 +475,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "8f487ddcf2b6df86261468aefb49a1c2197a526fdd67015737cfd6baeafe1df7"
+  inputs-digest = "6d08a223b340a38e94b73f2721713e10287773a9b5f4fd05413905b8f749325c"
   solver-name = "gps-cdcl"
   solver-version = 1
