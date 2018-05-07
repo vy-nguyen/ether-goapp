@@ -98,6 +98,7 @@
     "eth/gasprice",
     "eth/tracers",
     "eth/tracers/internal/tracers",
+    "ethclient",
     "ethdb",
     "ethstats",
     "event",
@@ -475,6 +476,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "6d08a223b340a38e94b73f2721713e10287773a9b5f4fd05413905b8f749325c"
+  inputs-digest = "c546b061c6a70c90037417ca778ad3ae78d2749a8dea0392751f521bf5859e5f"
   solver-name = "gps-cdcl"
   solver-version = 1

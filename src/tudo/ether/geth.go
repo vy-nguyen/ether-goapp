@@ -265,16 +265,20 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 			switch event.Kind {
 			case accounts.WalletArrived:
 				if err := event.Wallet.Open(""); err != nil {
-					log.Warn("New wallet appeared, failed to open", "url", event.Wallet.URL(), "err", err)
+					log.Warn("New wallet appeared, failed to open",
+						"url", event.Wallet.URL(), "err", err)
 				}
 			case accounts.WalletOpened:
 				status, _ := event.Wallet.Status()
-				log.Info("New wallet appeared", "url", event.Wallet.URL(), "status", status)
+				log.Info("New wallet appeared", "url", event.Wallet.URL(),
+					"status", status)
 
 				if event.Wallet.URL().Scheme == "ledger" {
-					event.Wallet.SelfDerive(accounts.DefaultLedgerBaseDerivationPath, stateReader)
+					event.Wallet.SelfDerive(
+						accounts.DefaultLedgerBaseDerivationPath, stateReader)
 				} else {
-					event.Wallet.SelfDerive(accounts.DefaultBaseDerivationPath, stateReader)
+					event.Wallet.SelfDerive(
+						accounts.DefaultBaseDerivationPath, stateReader)
 				}
 
 			case accounts.WalletDropped:
@@ -284,9 +288,11 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 		}
 	}()
 	// Start auxiliary services if enabled
-	if ctx.GlobalBool(utils.MiningEnabledFlag.Name) || ctx.GlobalBool(utils.DeveloperFlag.Name) {
+	if ctx.GlobalBool(utils.MiningEnabledFlag.Name) ||
+		ctx.GlobalBool(utils.DeveloperFlag.Name) {
 		// Mining only makes sense if a full Ethereum node is running
-		if ctx.GlobalBool(utils.LightModeFlag.Name) || ctx.GlobalString(utils.SyncModeFlag.Name) == "light" {
+		if ctx.GlobalBool(utils.LightModeFlag.Name) ||
+			ctx.GlobalString(utils.SyncModeFlag.Name) == "light" {
 			utils.Fatalf("Light clients do not support mining")
 		}
 		var ethereum *eth.Ethereum
