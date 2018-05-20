@@ -213,8 +213,10 @@ func GethMain() {
 // It creates a default node based on the command line arguments and runs it in
 // blocking mode, waiting for it to be shut down.
 func geth(ctx *cli.Context) error {
-	logger := log.NewGlogHandler(log.StreamHandler(os.Stdout, log.TerminalFormat(true)))
 	logLvl := log.Lvl(ctx.Int("verbosity"))
+	logger := log.NewGlogHandler(
+		log.StreamHandler(os.Stdout, log.TerminalFormat(true)))
+
 	logger.Verbosity(logLvl)
 	log.Root().SetHandler(logger)
 	fmt.Println("\nRun at verbosity level " + logLvl.String())

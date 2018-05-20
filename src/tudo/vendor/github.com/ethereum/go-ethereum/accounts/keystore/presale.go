@@ -32,7 +32,7 @@ import (
 )
 
 // creates a Key and stores that in the given KeyStore by decrypting a presale key JSON
-func importPreSaleKey(keyStore keyStore, keyJSON []byte, password string) (accounts.Account, *Key, error) {
+func importPreSaleKey(keyStore KeyStoreIf, keyJSON []byte, password string) (accounts.Account, *Key, error) {
 	key, err := decryptPreSaleKey(keyJSON, password)
 	if err != nil {
 		return accounts.Account{}, nil, err

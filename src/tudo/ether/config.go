@@ -26,6 +26,7 @@ import (
 	"unicode"
 
 	cli "gopkg.in/urfave/cli.v1"
+	"tudo/ethcore"
 
 	"github.com/ethereum/go-ethereum/cmd/utils"
 	"github.com/ethereum/go-ethereum/dashboard"
@@ -125,7 +126,7 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, gethConfig) {
 
 	// Apply flags.
 	utils.SetNodeConfig(ctx, &cfg.Node)
-	stack, err := NewTudoNode(&cfg.Node)
+	stack, err := ethcore.NewTudoNode(&cfg.Node)
 	if err != nil {
 		utils.Fatalf("Failed to create the protocol stack: %v", err)
 	}

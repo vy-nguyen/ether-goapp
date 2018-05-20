@@ -618,3 +618,7 @@ func (n *Node) apis() []rpc.API {
 func (n *Node) GetApis() []rpc.API {
 	return n.apis()
 }
+
+func (n *Node) SetAccountManager(accman *accounts.Manager) {
+	n.accman = accman
+}

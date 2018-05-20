@@ -57,7 +57,7 @@ const walletRefreshCycle = 3 * time.Second
 
 // KeyStore manages a key storage directory on disk.
 type KeyStore struct {
-	storage  keyStore                     // Storage backend, might be cleartext or encrypted
+	Storage  KeyStoreIf                   // Storage backend, might be cleartext or encrypted
 	cache    *accountCache                // In-memory account cache over the filesystem storage
 	changes  chan struct{}                // Channel receiving change notifications from the cache
 	unlocked map[common.Address]*unlocked // Currently unlocked account (decrypted private keys)
@@ -78,7 +78,7 @@ type unlocked struct {
 // NewKeyStore creates a keystore for the given directory.
 func NewKeyStore(keydir string, scryptN, scryptP int) *KeyStore {
 	keydir, _ = filepath.Abs(keydir)
-	ks := &KeyStore{storage: &keyStorePassphrase{keydir, scryptN, scryptP}}
+	ks := &KeyStore{Storage: &keyStorePassphrase{keydir, scryptN, scryptP}}
 	ks.init(keydir)
 	return ks
 }
@@ -87,7 +87,7 @@ func NewKeyStore(keydir string, scryptN, scryptP int) *KeyStore {
 // Deprecated: Use NewKeyStore.
 func NewPlaintextKeyStore(keydir string) *KeyStore {
 	keydir, _ = filepath.Abs(keydir)
-	ks := &KeyStore{storage: &keyStorePlain{keydir}}
+	ks := &KeyStore{Storage: &keyStorePlain{keydir}}
 	ks.init(keydir)
 	return ks
 }
@@ -379,7 +379,7 @@ func (ks *KeyStore) getDecryptedKey(a accounts.Account, auth string) (accounts.A
 	if err != nil {
 		return a, nil, err
 	}
-	key, err := ks.storage.GetKey(a.Address, a.URL.Path, auth)
+	key, err := ks.Storage.GetKey(a.Address, a.URL.Path, auth)
 	return a, key, err
 }
 
@@ -406,7 +406,7 @@ func (ks *KeyStore) expire(addr common.Address, u *unlocked, timeout time.Durati
 // NewAccount generates a new key and stores it into the key directory,
 // encrypting it with the passphrase.
 func (ks *KeyStore) NewAccount(passphrase string) (accounts.Account, error) {
-	_, account, err := storeNewKey(ks.storage, crand.Reader, passphrase)
+	_, account, err := storeNewKey(ks.Storage, crand.Reader, passphrase)
 	if err != nil {
 		return accounts.Account{}, err
 	}
@@ -424,7 +424,7 @@ func (ks *KeyStore) Export(a accounts.Account, passphrase, newPassphrase string)
 		return nil, err
 	}
 	var N, P int
-	if store, ok := ks.storage.(*keyStorePassphrase); ok {
+	if store, ok := ks.Storage.(*keyStorePassphrase); ok {
 		N, P = store.scryptN, store.scryptP
 	} else {
 		N, P = StandardScryptN, StandardScryptP
@@ -454,8 +454,8 @@ func (ks *KeyStore) ImportECDSA(priv *ecdsa.PrivateKey, passphrase string) (acco
 }
 
 func (ks *KeyStore) importKey(key *Key, passphrase string) (accounts.Account, error) {
-	a := accounts.Account{Address: key.Address, URL: accounts.URL{Scheme: KeyStoreScheme, Path: ks.storage.JoinPath(keyFileName(key.Address))}}
-	if err := ks.storage.StoreKey(a.URL.Path, key, passphrase); err != nil {
+	a := accounts.Account{Address: key.Address, URL: accounts.URL{Scheme: KeyStoreScheme, Path: ks.Storage.JoinPath(keyFileName(key.Address))}}
+	if err := ks.Storage.StoreKey(a.URL.Path, key, passphrase); err != nil {
 		return accounts.Account{}, err
 	}
 	ks.cache.add(a)
@@ -469,13 +469,13 @@ func (ks *KeyStore) Update(a accounts.Account, passphrase, newPassphrase string)
 	if err != nil {
 		return err
 	}
-	return ks.storage.StoreKey(a.URL.Path, key, newPassphrase)
+	return ks.Storage.StoreKey(a.URL.Path, key, newPassphrase)
 }
 
 // ImportPreSaleKey decrypts the given Ethereum presale wallet and stores
 // a key file in the key directory. The key file is encrypted with the same passphrase.
 func (ks *KeyStore) ImportPreSaleKey(keyJSON []byte, passphrase string) (accounts.Account, error) {
-	a, _, err := importPreSaleKey(ks.storage, keyJSON, passphrase)
+	a, _, err := importPreSaleKey(ks.Storage, keyJSON, passphrase)
 	if err != nil {
 		return a, err
 	}
