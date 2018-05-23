@@ -8,19 +8,20 @@
 package ethcore
 
 import (
+	"tudo/kstore"
+
 	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/node"
 )
 
-func makeAccountManager(conf *node.Config) (*accounts.Manager, error) {
-	scryptN, scryptP, keydir, err := conf.AccountConfig()
+func makeAccountManager(conf *node.Config) (accounts.Manager, error) {
+	scryptN, scryptP, _, err := conf.AccountConfig()
 
 	if err != nil {
 		return nil, err
 	}
 	backends := []accounts.Backend{
-		keystore.NewKeyStore(keydir, scryptN, scryptP),
+		kstore.NewKeyStore(scryptN, scryptP),
 	}
 	return accounts.NewManager(backends...), nil
 }
