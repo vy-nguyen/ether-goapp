@@ -45,7 +45,7 @@ type Node struct {
 	NodeIf   NodeApis
 	eventmux *event.TypeMux // Event multiplexer used between the services of a stack
 	config   *Config
-	accman   *accounts.Manager
+	accman   accounts.Manager
 
 	ephemeralKeystore string         // if non-empty, the key directory that will be removed by Stop
 	instanceDirLock   flock.Releaser // prevents concurrent use of instance directory
@@ -545,7 +545,7 @@ func (n *Node) InstanceDir() string {
 }
 
 // AccountManager retrieves the account manager used by the protocol stack.
-func (n *Node) AccountManager() *accounts.Manager {
+func (n *Node) AccountManager() accounts.Manager {
 	return n.accman
 }
 
@@ -619,6 +619,6 @@ func (n *Node) GetApis() []rpc.API {
 	return n.apis()
 }
 
-func (n *Node) SetAccountManager(accman *accounts.Manager) {
+func (n *Node) SetAccountManager(accman accounts.Manager) {
 	n.accman = accman
 }

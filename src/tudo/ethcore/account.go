@@ -20,8 +20,8 @@ func makeAccountManager(conf *node.Config) (accounts.Manager, error) {
 	if err != nil {
 		return nil, err
 	}
-	backends := []accounts.Backend{
+	kstore := []kstore.KsInterface{
 		kstore.NewKeyStore(scryptN, scryptP),
 	}
-	return accounts.NewManager(backends...), nil
+	return NewManager(kstore...), nil
 }

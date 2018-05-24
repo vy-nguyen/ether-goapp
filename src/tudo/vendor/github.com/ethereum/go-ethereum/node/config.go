@@ -400,7 +400,7 @@ func (c *Config) AccountConfig() (int, int, string, error) {
 	return scryptN, scryptP, keydir, err
 }
 
-func makeAccountManager(conf *Config) (*accounts.Manager, string, error) {
+func makeAccountManager(conf *Config) (accounts.Manager, string, error) {
 	scryptN, scryptP, keydir, err := conf.AccountConfig()
 	var ephemeral string
 	if keydir == "" {

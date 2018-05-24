@@ -18,19 +18,15 @@ import (
 	"tudo/kstore"
 )
 
-type Interface interface {
-	Close() error
-	Backends(kind reflect.Type) kstore.Interface
-	DefaultKeyStore() kstore.Interface
+type AmInterface interface {
+	accounts.Manager
 
-	Find(account accounts.Account) (accounts.Wallet, error)
-	Subscribe(sink chan<- accounts.WalletEvent) event.Subscription
-	Wallets() []accounts.Wallet
-	Wallet(url string) (accounts.Wallet, error)
+	Keystore(kind reflect.Type) kstore.KsInterface
+	DefaultKeyStore() kstore.KsInterface
 }
 
 type Manager struct {
-	kstore   map[reflect.Type]kstore.Interface
+	kstore   map[reflect.Type]kstore.KsInterface
 	updaters []event.Subscription
 	updates  chan accounts.WalletEvent
 	wallets  []accounts.Wallet
@@ -39,11 +35,11 @@ type Manager struct {
 	lock     sync.RWMutex
 }
 
-func NewManager(keystore ...kstore.Interface) Interface {
+func NewManager(keystore ...kstore.KsInterface) AmInterface {
 	wallets := []accounts.Wallet{}
 	updates := make(chan accounts.WalletEvent, 4*len(keystore))
 	subs := make([]event.Subscription, len(keystore))
-	ksmap := make(map[reflect.Type]kstore.Interface)
+	ksmap := make(map[reflect.Type]kstore.KsInterface)
 
 	for i, ks := range keystore {
 		kind := reflect.TypeOf(ks)
@@ -68,11 +64,22 @@ func (am *Manager) Close() error {
 	return <-errc
 }
 
-func (am *Manager) Backends(kind reflect.Type) kstore.Interface {
+func (am *Manager) Keystore(kind reflect.Type) kstore.KsInterface {
 	return am.kstore[kind]
 }
 
-func (am *Manager) DefaultKeyStore() kstore.Interface {
+func (am *Manager) Backends(kind reflect.Type) []accounts.Backend {
+	iface := am.kstore[kind]
+	if iface != nil {
+		return []accounts.Backend{iface}
+	}
+	for _, ks := range am.kstore {
+		return []accounts.Backend{ks}
+	}
+	return nil
+}
+
+func (am *Manager) DefaultKeyStore() kstore.KsInterface {
 	for _, ks := range am.kstore {
 		return ks
 	}

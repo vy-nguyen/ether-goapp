@@ -17,7 +17,7 @@ import (
 	"github.com/pborman/uuid"
 )
 
-func NewKeyStore(scryptN, scryptP int) *KStore {
+func NewKeyStore(scryptN, scryptP int) KsInterface {
 	ks := &KStore{
 		StoreIf: &SqlKeyStore{
 			BaseKeyStore: BaseKeyStore{scryptN, scryptP},
@@ -27,6 +27,9 @@ func NewKeyStore(scryptN, scryptP int) *KStore {
 	return ks
 }
 
+/**
+ * Base keystore.
+ */
 func (ks *KStore) init() {
 	ks.mu.Lock()
 	defer ks.mu.Unlock()
@@ -36,15 +39,27 @@ func (ks *KStore) init() {
 }
 
 func (ks *KStore) Wallets() []accounts.Wallet {
-	fmt.Printf("Wallets is called")
+	fmt.Printf("Wallets is called\n")
 	return nil
 }
 
 func (ks *KStore) Subscribe(sink chan<- accounts.WalletEvent) event.Subscription {
-	fmt.Printf("Subscribe is called")
+	fmt.Printf("Subscribe is called\n")
 	return nil
 }
 
+func (ks *KStore) GetKey(addr common.Address,
+	owner uuid.UUID, auth string) (*keystore.Key, error) {
+	return nil, nil
+}
+
+func (ks *KStore) StoreKey(k *keystore.Key, owner uuid.UUID, auth string) error {
+	return nil
+}
+
+/**
+ * SQL based keystore.
+ */
 func (ks *SqlKeyStore) GetKey(addr common.Address,
 	owner uuid.UUID, auth string) (*keystore.Key, error) {
 	fmt.Printf("Get key is called %v\n", addr)

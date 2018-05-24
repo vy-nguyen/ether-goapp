@@ -17,16 +17,15 @@ import (
 	"github.com/pborman/uuid"
 )
 
-type Interface interface {
+type KsInterface interface {
+	accounts.Backend
+
 	GetKey(addr common.Address, owner uuid.UUID, auth string) (*keystore.Key, error)
 	StoreKey(k *keystore.Key, owner uuid.UUID, auth string) error
-
-	Wallets() []accounts.Wallet
-	Subscribe(sink chan<- accounts.WalletEvent) event.Subscription
 }
 
 type KStore struct {
-	StoreIf    Interface
+	StoreIf    KsInterface
 	changes    chan struct{}
 	unlocked   map[common.Address]*keystore.Key
 	wallets    []accounts.Wallet

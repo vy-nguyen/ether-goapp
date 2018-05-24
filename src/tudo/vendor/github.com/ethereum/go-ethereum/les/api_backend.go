@@ -173,7 +173,7 @@ func (b *LesApiBackend) EventMux() *event.TypeMux {
 	return b.eth.eventMux
 }
 
-func (b *LesApiBackend) AccountManager() *accounts.Manager {
+func (b *LesApiBackend) AccountManager() accounts.Manager {
 	return b.eth.accountManager
 }
 

@@ -71,7 +71,7 @@ type LightEthereum struct {
 
 	eventMux       *event.TypeMux
 	engine         consensus.Engine
-	accountManager *accounts.Manager
+	accountManager accounts.Manager
 
 	networkId     uint64
 	netRPCService *ethapi.PublicNetAPI

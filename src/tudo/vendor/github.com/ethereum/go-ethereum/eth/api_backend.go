@@ -204,7 +204,7 @@ func (b *EthApiBackend) EventMux() *event.TypeMux {
 	return b.eth.EventMux()
 }
 
-func (b *EthApiBackend) AccountManager() *accounts.Manager {
+func (b *EthApiBackend) AccountManager() accounts.Manager {
 	return b.eth.AccountManager()
 }
 

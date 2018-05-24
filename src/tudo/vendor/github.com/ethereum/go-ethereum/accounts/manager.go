@@ -26,7 +26,16 @@ import (
 
 // Manager is an overarching account manager that can communicate with various
 // backends for signing transactions.
-type Manager struct {
+type Manager interface {
+	Close() error
+	Backends(kind reflect.Type) []Backend
+	Find(account Account) (Wallet, error)
+	Subscribe(sink chan<- WalletEvent) event.Subscription
+	Wallets() []Wallet
+	Wallet(url string) (Wallet, error)
+}
+
+type ManagerObj struct {
 	backends map[reflect.Type][]Backend // Index of backends currently registered
 	updaters []event.Subscription       // Wallet update subscriptions for all backends
 	updates  chan WalletEvent           // Subscription sink for backend wallet changes
@@ -40,7 +49,7 @@ type Manager struct {
 
 // NewManager creates a generic account manager to sign transaction via various
 // supported backends.
-func NewManager(backends ...Backend) *Manager {
+func NewManager(backends ...Backend) Manager {
 	// Retrieve the initial list of wallets from the backends and sort by URL
 	var wallets []Wallet
 	for _, backend := range backends {
@@ -54,7 +63,7 @@ func NewManager(backends ...Backend) *Manager {
 		subs[i] = backend.Subscribe(updates)
 	}
 	// Assemble the account manager and return
-	am := &Manager{
+	am := &ManagerObj{
 		backends: make(map[reflect.Type][]Backend),
 		updaters: subs,
 		updates:  updates,
@@ -71,7 +80,7 @@ func NewManager(backends ...Backend) *Manager {
 }
 
 // Close terminates the account manager's internal notification processes.
-func (am *Manager) Close() error {
+func (am *ManagerObj) Close() error {
 	errc := make(chan error)
 	am.quit <- errc
 	return <-errc
@@ -79,7 +88,7 @@ func (am *Manager) Close() error {
 
 // update is the wallet event loop listening for notifications from the backends
 // and updating the cache of wallets.
-func (am *Manager) update() {
+func (am *ManagerObj) update() {
 	// Close all subscriptions when the manager terminates
 	defer func() {
 		am.lock.Lock()
@@ -116,12 +125,12 @@ func (am *Manager) update() {
 }
 
 // Backends retrieves the backend(s) with the given type from the account manager.
-func (am *Manager) Backends(kind reflect.Type) []Backend {
+func (am *ManagerObj) Backends(kind reflect.Type) []Backend {
 	return am.backends[kind]
 }
 
 // Wallets returns all signer accounts registered under this account manager.
-func (am *Manager) Wallets() []Wallet {
+func (am *ManagerObj) Wallets() []Wallet {
 	am.lock.RLock()
 	defer am.lock.RUnlock()
 
@@ -131,7 +140,7 @@ func (am *Manager) Wallets() []Wallet {
 }
 
 // Wallet retrieves the wallet associated with a particular URL.
-func (am *Manager) Wallet(url string) (Wallet, error) {
+func (am *ManagerObj) Wallet(url string) (Wallet, error) {
 	am.lock.RLock()
 	defer am.lock.RUnlock()
 
@@ -150,7 +159,7 @@ func (am *Manager) Wallet(url string) (Wallet, error) {
 // Find attempts to locate the wallet corresponding to a specific account. Since
 // accounts can be dynamically added to and removed from wallets, this method has
 // a linear runtime in the number of wallets.
-func (am *Manager) Find(account Account) (Wallet, error) {
+func (am *ManagerObj) Find(account Account) (Wallet, error) {
 	am.lock.RLock()
 	defer am.lock.RUnlock()
 
@@ -164,7 +173,7 @@ func (am *Manager) Find(account Account) (Wallet, error) {
 
 // Subscribe creates an async subscription to receive notifications when the
 // manager detects the arrival or departure of a wallet from any of its backends.
-func (am *Manager) Subscribe(sink chan<- WalletEvent) event.Subscription {
+func (am *ManagerObj) Subscribe(sink chan<- WalletEvent) event.Subscription {
 	return am.feed.Subscribe(sink)
 }
 

@@ -84,7 +84,7 @@ type SignerUI interface {
 // SignerAPI defines the actual implementation of ExternalAPI
 type SignerAPI struct {
 	chainID   *big.Int
-	am        *accounts.Manager
+	am        accounts.Manager
 	UI        SignerUI
 	validator *Validator
 }

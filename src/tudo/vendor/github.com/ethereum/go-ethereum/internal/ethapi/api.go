@@ -178,11 +178,11 @@ func (s *PublicTxPoolAPI) Inspect() map[string]map[string]map[string]string {
 // PublicAccountAPI provides an API to access accounts managed by this node.
 // It offers only methods that can retrieve accounts.
 type PublicAccountAPI struct {
-	am *accounts.Manager
+	am accounts.Manager
 }
 
 // NewPublicAccountAPI creates a new PublicAccountAPI.
-func NewPublicAccountAPI(am *accounts.Manager) *PublicAccountAPI {
+func NewPublicAccountAPI(am accounts.Manager) *PublicAccountAPI {
 	return &PublicAccountAPI{am: am}
 }
 
@@ -201,7 +201,7 @@ func (s *PublicAccountAPI) Accounts() []common.Address {
 // It offers methods to create, (un)lock en list accounts. Some methods accept
 // passwords and are therefore considered private by default.
 type PrivateAccountAPI struct {
-	am        *accounts.Manager
+	am        accounts.Manager
 	nonceLock *AddrLocker
 	b         Backend
 }
@@ -297,7 +297,7 @@ func (s *PrivateAccountAPI) NewAccount(password string) (common.Address, error) 
 }
 
 // fetchKeystore retrives the encrypted keystore from the account manager.
-func fetchKeystore(am *accounts.Manager) *keystore.KeyStore {
+func fetchKeystore(am accounts.Manager) *keystore.KeyStore {
 	return am.Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
 }
 

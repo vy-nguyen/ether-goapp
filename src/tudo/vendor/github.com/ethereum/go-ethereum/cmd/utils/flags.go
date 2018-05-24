@@ -1017,8 +1017,8 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 	checkExclusive(ctx, LightServFlag, LightModeFlag)
 	checkExclusive(ctx, LightServFlag, SyncModeFlag, "light")
 
-	ks := stack.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
-	setEtherbase(ctx, ks, cfg)
+	// ks := stack.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
+	// setEtherbase(ctx, ks, cfg)
 	setGPO(ctx, &cfg.GPO)
 	setTxPool(ctx, &cfg.TxPool)
 	setEthash(ctx, cfg)
@@ -1085,24 +1085,26 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 		cfg.Genesis = core.DefaultRinkebyGenesisBlock()
 	case ctx.GlobalBool(DeveloperFlag.Name):
 		// Create new developer account or reuse existing one
-		var (
-			developer accounts.Account
-			err       error
-		)
-		if accs := ks.Accounts(); len(accs) > 0 {
-			developer = ks.Accounts()[0]
-		} else {
-			developer, err = ks.NewAccount("")
-			if err != nil {
-				Fatalf("Failed to create developer account: %v", err)
-			}
-		}
-		if err := ks.Unlock(developer, ""); err != nil {
-			Fatalf("Failed to unlock developer account: %v", err)
-		}
-		log.Info("Using developer account", "address", developer.Address)
+		/*
+				var (
+					developer accounts.Account
+					err       error
+				)
+				if accs := ks.Accounts(); len(accs) > 0 {
+					developer = ks.Accounts()[0]
+				} else {
+					developer, err = ks.NewAccount("")
+					if err != nil {
+						Fatalf("Failed to create developer account: %v", err)
+					}
+				}
+				if err := ks.Unlock(developer, ""); err != nil {
+					Fatalf("Failed to unlock developer account: %v", err)
+				}
+				log.Info("Using developer account", "address", developer.Address)
 
-		cfg.Genesis = core.DeveloperGenesisBlock(uint64(ctx.GlobalInt(DeveloperPeriodFlag.Name)), developer.Address)
+			cfg.Genesis = core.DeveloperGenesisBlock(uint64(ctx.GlobalInt(DeveloperPeriodFlag.Name)), developer.Address)
+		*/
 		if !ctx.GlobalIsSet(GasPriceFlag.Name) {
 			cfg.GasPrice = big.NewInt(1)
 		}

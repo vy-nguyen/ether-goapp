@@ -35,6 +35,7 @@ import (
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/node"
 	"gopkg.in/urfave/cli.v1"
+	"tudo/kstore"
 )
 
 const (
@@ -235,7 +236,7 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 	utils.StartNode(stack)
 
 	// Unlock any account specifically requested
-	ks := stack.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
+	ks := stack.AccountManager().Backends(keystore.KeyStoreType)[0].(kstore.KsInterface)
 
 	passwords := utils.MakePasswordList(ctx)
 	unlocks := strings.Split(ctx.GlobalString(utils.UnlockedAccountFlag.Name), ",")
