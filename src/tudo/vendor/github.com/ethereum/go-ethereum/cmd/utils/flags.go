@@ -748,7 +748,7 @@ func makeDatabaseHandles() int {
 
 // MakeAddress converts an account specified directly as a hex encoded string or
 // a key index in the key store to an internal account representation.
-func MakeAddress(ks *keystore.KeyStore, account string) (accounts.Account, error) {
+func MakeAddress(ks keystore.KeyStore, account string) (accounts.Account, error) {
 	// If the specified account is a valid address, return it
 	if common.IsHexAddress(account) {
 		return accounts.Account{Address: common.HexToAddress(account)}, nil
@@ -773,7 +773,7 @@ func MakeAddress(ks *keystore.KeyStore, account string) (accounts.Account, error
 
 // setEtherbase retrieves the etherbase either from the directly specified
 // command line flags or from the keystore if CLI indexed.
-func setEtherbase(ctx *cli.Context, ks *keystore.KeyStore, cfg *eth.Config) {
+func setEtherbase(ctx *cli.Context, ks keystore.KeyStore, cfg *eth.Config) {
 	if ctx.GlobalIsSet(EtherbaseFlag.Name) {
 		account, err := MakeAddress(ks, ctx.GlobalString(EtherbaseFlag.Name))
 		if err != nil {

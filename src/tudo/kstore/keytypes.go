@@ -8,22 +8,26 @@
 package kstore
 
 import (
-	"sync"
+	/*
+		"sync"
 
-	"github.com/ethereum/go-ethereum/accounts"
+		"github.com/ethereum/go-ethereum/accounts"
+	*/
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/event"
 	"github.com/pborman/uuid"
-)
+	/*
+		"github.com/ethereum/go-ethereum/event"
+	*/)
 
 type KsInterface interface {
-	accounts.Backend
+	keystore.KeyStoreIf
 
-	GetKey(addr common.Address, owner uuid.UUID, auth string) (*keystore.Key, error)
-	StoreKey(k *keystore.Key, owner uuid.UUID, auth string) error
+	GetKeyUuid(addr common.Address, owner uuid.UUID, auth string) (*keystore.Key, error)
+	StoreKeyUuid(k *keystore.Key, owner uuid.UUID, auth string) error
 }
 
+/*
 type KStore struct {
 	StoreIf    KsInterface
 	changes    chan struct{}
@@ -34,6 +38,7 @@ type KStore struct {
 	updating   bool
 	mu         sync.RWMutex
 }
+*/
 
 type BaseKeyStore struct {
 	scryptN int

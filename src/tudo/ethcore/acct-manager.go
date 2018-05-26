@@ -14,19 +14,19 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/event"
-	"tudo/kstore"
 )
 
 type AmInterface interface {
 	accounts.Manager
 
-	Keystore(kind reflect.Type) kstore.KsInterface
-	DefaultKeyStore() kstore.KsInterface
+	Keystore(kind reflect.Type) keystore.KeyStore
+	DefaultKeyStore() keystore.KeyStore
 }
 
 type Manager struct {
-	kstore   map[reflect.Type]kstore.KsInterface
+	kstore   map[reflect.Type]keystore.KeyStore
 	updaters []event.Subscription
 	updates  chan accounts.WalletEvent
 	wallets  []accounts.Wallet
@@ -35,13 +35,13 @@ type Manager struct {
 	lock     sync.RWMutex
 }
 
-func NewManager(keystore ...kstore.KsInterface) AmInterface {
+func NewManager(kstore ...keystore.KeyStore) AmInterface {
 	wallets := []accounts.Wallet{}
-	updates := make(chan accounts.WalletEvent, 4*len(keystore))
-	subs := make([]event.Subscription, len(keystore))
-	ksmap := make(map[reflect.Type]kstore.KsInterface)
+	updates := make(chan accounts.WalletEvent, 4*len(kstore))
+	subs := make([]event.Subscription, len(kstore))
+	ksmap := make(map[reflect.Type]keystore.KeyStore)
 
-	for i, ks := range keystore {
+	for i, ks := range kstore {
 		kind := reflect.TypeOf(ks)
 		ksmap[kind] = ks
 		wallets = mergeSorted(wallets, ks.Wallets()...)
@@ -64,7 +64,7 @@ func (am *Manager) Close() error {
 	return <-errc
 }
 
-func (am *Manager) Keystore(kind reflect.Type) kstore.KsInterface {
+func (am *Manager) Keystore(kind reflect.Type) keystore.KeyStore {
 	return am.kstore[kind]
 }
 
@@ -79,7 +79,7 @@ func (am *Manager) Backends(kind reflect.Type) []accounts.Backend {
 	return nil
 }
 
-func (am *Manager) DefaultKeyStore() kstore.KsInterface {
+func (am *Manager) DefaultKeyStore() keystore.KeyStore {
 	for _, ks := range am.kstore {
 		return ks
 	}
@@ -88,7 +88,7 @@ func (am *Manager) DefaultKeyStore() kstore.KsInterface {
 
 func (am *Manager) Wallets() []accounts.Wallet {
 	am.lock.RLock()
-	defer am.lock.RLock()
+	defer am.lock.RUnlock()
 
 	cpy := make([]accounts.Wallet, len(am.wallets))
 	copy(cpy, am.wallets)
@@ -97,7 +97,7 @@ func (am *Manager) Wallets() []accounts.Wallet {
 
 func (am *Manager) Wallet(url string) (accounts.Wallet, error) {
 	am.lock.RLock()
-	defer am.lock.RLock()
+	defer am.lock.RUnlock()
 
 	fmt.Printf("Get wallet from %s\n", url)
 	return nil, nil
@@ -105,7 +105,7 @@ func (am *Manager) Wallet(url string) (accounts.Wallet, error) {
 
 func (am *Manager) Find(account accounts.Account) (accounts.Wallet, error) {
 	am.lock.RLock()
-	defer am.lock.RLock()
+	defer am.lock.RUnlock()
 
 	for _, wallet := range am.wallets {
 		if wallet.Contains(account) {

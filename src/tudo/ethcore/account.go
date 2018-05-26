@@ -8,20 +8,25 @@
 package ethcore
 
 import (
+	"io/ioutil"
 	"tudo/kstore"
 
 	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/node"
 )
 
 func makeAccountManager(conf *node.Config) (accounts.Manager, error) {
-	scryptN, scryptP, _, err := conf.AccountConfig()
+	scryptN, scryptP, keydir, err := conf.AccountConfig()
 
+	if keydir == "" {
+		keydir, err = ioutil.TempDir("", "go-eth-keystore")
+	}
 	if err != nil {
 		return nil, err
 	}
-	kstore := []kstore.KsInterface{
-		kstore.NewKeyStore(scryptN, scryptP),
+	kstore := []keystore.KeyStore{
+		kstore.NewKeyStore(keydir, scryptN, scryptP),
 	}
 	return NewManager(kstore...), nil
 }

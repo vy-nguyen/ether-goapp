@@ -28,7 +28,7 @@ import (
 // keystore.
 type keystoreWallet struct {
 	account  accounts.Account // Single account contained in this wallet
-	keystore *KeyStore        // Keystore where the account originates from
+	keystore *KeyStoreObj     // Keystore where the account originates from
 }
 
 // URL implements accounts.Wallet, returning the URL of the account within.

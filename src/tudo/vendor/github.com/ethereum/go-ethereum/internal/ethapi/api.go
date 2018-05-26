@@ -297,8 +297,8 @@ func (s *PrivateAccountAPI) NewAccount(password string) (common.Address, error) 
 }
 
 // fetchKeystore retrives the encrypted keystore from the account manager.
-func fetchKeystore(am accounts.Manager) *keystore.KeyStore {
-	return am.Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
+func fetchKeystore(am accounts.Manager) keystore.KeyStore {
+	return am.Backends(keystore.KeyStoreType)[0].(keystore.KeyStore)
 }
 
 // ImportRawKey stores the given hex encoded ECDSA key into the key directory,
