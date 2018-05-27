@@ -10,6 +10,7 @@ package kstore
 import (
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pborman/uuid"
@@ -17,11 +18,18 @@ import (
 
 func NewKeyStore(keydir string, scryptN, scryptP int) keystore.KeyStore {
 	ksif := keystore.NewKeyStore(keydir, scryptN, scryptP)
-	ks := ksif.GetKeyStoreObj()
-	ks.Storage = &SqlKeyStore{
+	kstore := &KStore{
+		KeyStoreObj: *ksif.GetKeyStoreObj(),
+	}
+	kstore.KeyStoreObj.Storage = &SqlKeyStore{
 		BaseKeyStore: BaseKeyStore{scryptN, scryptP},
 	}
-	return ks
+	return kstore
+}
+
+func (ks *KStore) NewAccount(passphrase string) (accounts.Account, error) {
+	fmt.Printf("New override account pass %s\n", passphrase)
+	return ks.KeyStoreObj.NewAccount(passphrase)
 }
 
 func (ks *BaseKeyStore) GetKey(addr common.Address,

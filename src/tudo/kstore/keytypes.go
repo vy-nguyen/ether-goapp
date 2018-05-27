@@ -8,17 +8,10 @@
 package kstore
 
 import (
-	/*
-		"sync"
-
-		"github.com/ethereum/go-ethereum/accounts"
-	*/
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pborman/uuid"
-	/*
-		"github.com/ethereum/go-ethereum/event"
-	*/)
+)
 
 type KsInterface interface {
 	keystore.KeyStoreIf
@@ -27,18 +20,9 @@ type KsInterface interface {
 	StoreKeyUuid(k *keystore.Key, owner uuid.UUID, auth string) error
 }
 
-/*
 type KStore struct {
-	StoreIf    KsInterface
-	changes    chan struct{}
-	unlocked   map[common.Address]*keystore.Key
-	wallets    []accounts.Wallet
-	updateFeed event.Feed
-	updateSope event.SubscriptionScope
-	updating   bool
-	mu         sync.RWMutex
+	keystore.KeyStoreObj
 }
-*/
 
 type BaseKeyStore struct {
 	scryptN int
