@@ -8,6 +8,7 @@
 package kstore
 
 import (
+	"github.com/astaxie/beego/orm"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pborman/uuid"
@@ -22,11 +23,18 @@ type KsInterface interface {
 
 type KStore struct {
 	keystore.KeyStoreObj
+	kstoreIf IfaceBaseKey
+}
+
+type IfaceBaseKey interface {
+	keystore.KeyStoreIf
+	GetOrm() orm.Ormer
 }
 
 type BaseKeyStore struct {
-	scryptN int
-	scryptP int
+	scryptN    int
+	scryptP    int
+	ormHandler orm.Ormer
 }
 
 type SqlKeyStore struct {
