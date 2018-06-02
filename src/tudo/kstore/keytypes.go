@@ -8,10 +8,14 @@
 package kstore
 
 import (
+	"sync"
+
 	"github.com/astaxie/beego/orm"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/event"
 	"github.com/pborman/uuid"
+	"tudo/models"
 )
 
 type KsInterface interface {
@@ -19,16 +23,32 @@ type KsInterface interface {
 
 	GetKeyUuid(addr common.Address, owner uuid.UUID, auth string) (*keystore.Key, error)
 	StoreKeyUuid(k *keystore.Key, owner uuid.UUID, auth string) error
+	GetOrm() orm.Ormer
 }
 
 type KStore struct {
-	keystore.KeyStoreObj
-	kstoreIf IfaceBaseKey
+	Storage     KsInterface
+	changes     chan struct{}
+	updateFeed  event.Feed
+	updateScope event.SubscriptionScope
+	updating    bool
+	wallets     map[string]*Wallet
+	mu          sync.RWMutex
 }
 
-type IfaceBaseKey interface {
-	keystore.KeyStoreIf
-	GetOrm() orm.Ormer
+/**
+ * Wallet for multiple accounts.
+ */
+type AccountKey struct {
+	*models.AccountKey
+	Address common.Address
+}
+
+type Wallet struct {
+	AcctMap   map[string]AccountKey
+	unlock    bool
+	OwnerUuid uuid.UUID
+	KsIface   keystore.KeyStore
 }
 
 type BaseKeyStore struct {

@@ -92,6 +92,7 @@ func (am *Manager) Wallets() []accounts.Wallet {
 
 	cpy := make([]accounts.Wallet, len(am.wallets))
 	copy(cpy, am.wallets)
+	fmt.Println("Get wallets from account manager")
 	return cpy
 }
 

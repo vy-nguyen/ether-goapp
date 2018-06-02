@@ -79,8 +79,6 @@ type KeyStore interface {
 	ImportECDSA(priv *ecdsa.PrivateKey, passphrase string) (accounts.Account, error)
 	Update(a accounts.Account, passphrase, newPassphrase string) error
 	ImportPreSaleKey(keyJSON []byte, passphrase string) (accounts.Account, error)
-
-	GetKeyStoreObj() *KeyStoreObj
 }
 
 type KeyStoreObj struct {
@@ -116,10 +114,6 @@ func NewPlaintextKeyStore(keydir string) KeyStore {
 	keydir, _ = filepath.Abs(keydir)
 	ks := &KeyStoreObj{Storage: &keyStorePlain{keydir}}
 	ks.init(keydir)
-	return ks
-}
-
-func (ks *KeyStoreObj) GetKeyStoreObj() *KeyStoreObj {
 	return ks
 }
 
