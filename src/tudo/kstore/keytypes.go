@@ -45,7 +45,7 @@ type AccountKey struct {
 }
 
 type Wallet struct {
-	AcctMap   map[string]AccountKey
+	AcctMap   map[string]*AccountKey
 	unlock    bool
 	OwnerUuid uuid.UUID
 	KsIface   keystore.KeyStore

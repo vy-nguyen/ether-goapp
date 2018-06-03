@@ -55,7 +55,7 @@ func (ks *KStore) init() {
 		if wallet == nil {
 			wallet = &Wallet{
 				unlock:    false,
-				AcctMap:   make(map[string]AccountKey),
+				AcctMap:   make(map[string]*AccountKey),
 				OwnerUuid: uuid.Parse(acct.OwnerUuid),
 				KsIface:   ks,
 			}
@@ -65,7 +65,7 @@ func (ks *KStore) init() {
 			wallet.unlock = true
 		}
 		address := common.HexToAddress(acct.Account)
-		wallet.AcctMap[address.Hex()] = AccountKey{
+		wallet.AcctMap[address.Hex()] = &AccountKey{
 			AccountKey: acct,
 			Address:    address,
 		}
@@ -116,7 +116,33 @@ func (ks *KStore) Wallets() []accounts.Wallet {
  * ---------
  */
 func (ks *KStore) Subscribe(sink chan<- accounts.WalletEvent) event.Subscription {
-	return nil
+	ks.mu.Lock()
+	defer ks.mu.Unlock()
+
+	sub := ks.updateScope.Track(ks.updateFeed.Subscribe(sink))
+
+	if !ks.updating {
+		ks.updating = true
+		go ks.updater()
+	}
+	return sub
+}
+
+func (ks *KStore) updater() {
+	for {
+		select {
+		case <-ks.changes:
+		case <-time.After(3 * time.Second):
+		}
+
+		ks.mu.Lock()
+		if ks.updateScope.Count() == 0 {
+			ks.updating = false
+			ks.mu.Unlock()
+			return
+		}
+		ks.mu.Unlock()
+	}
 }
 
 /**
@@ -124,6 +150,15 @@ func (ks *KStore) Subscribe(sink chan<- accounts.WalletEvent) event.Subscription
  * ----------
  */
 func (ks *KStore) HasAddress(addr common.Address) bool {
+	acct := accounts.Account{
+		Address: addr,
+		URL:     accounts.URL{},
+	}
+	for _, wallet := range ks.wallets {
+		if wallet.Contains(acct) {
+			return true
+		}
+	}
 	return false
 }
 
@@ -132,8 +167,15 @@ func (ks *KStore) HasAddress(addr common.Address) bool {
  * --------
  */
 func (ks *KStore) Accounts() []accounts.Account {
-	fmt.Println("Get accounts from keystore")
-	return nil
+	accounts := []accounts.Account{}
+	for _, wallet := range ks.wallets {
+		out := wallet.Accounts()
+		if len(out) > 0 {
+			accounts = append(accounts, out...)
+		}
+	}
+	fmt.Println("Get accounts from keystore, count %d", len(accounts))
+	return accounts
 }
 
 /**

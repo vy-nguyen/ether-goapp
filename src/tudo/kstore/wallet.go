@@ -8,7 +8,6 @@
 package kstore
 
 import (
-	// "fmt"
 	"math/big"
 
 	ethereum "github.com/ethereum/go-ethereum"
@@ -77,7 +76,16 @@ func (w *Wallet) Accounts() []accounts.Account {
  * --------
  */
 func (w *Wallet) Contains(account accounts.Account) bool {
-	return false
+	if w.AcctMap[account.Address.Hex()] == nil {
+		return false
+	}
+	if w.URL() != account.URL {
+		if account.URL == (accounts.URL{}) {
+			return true
+		}
+		return false
+	}
+	return true
 }
 
 /**
@@ -102,7 +110,10 @@ func (w *Wallet) SelfDerive(base accounts.DerivationPath,
  * --------
  */
 func (w *Wallet) SignHash(account accounts.Account, hash []byte) ([]byte, error) {
-	return nil, nil
+	if w.Contains(account) == false {
+		return nil, accounts.ErrUnknownAccount
+	}
+	return w.KsIface.SignHash(account, hash)
 }
 
 /**
@@ -111,7 +122,10 @@ func (w *Wallet) SignHash(account accounts.Account, hash []byte) ([]byte, error)
  */
 func (w *Wallet) SignTx(account accounts.Account,
 	tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
-	return nil, nil
+	if w.Contains(account) == false {
+		return nil, accounts.ErrUnknownAccount
+	}
+	return w.KsIface.SignTx(account, tx, chainID)
 }
 
 /**
@@ -120,7 +134,10 @@ func (w *Wallet) SignTx(account accounts.Account,
  */
 func (w *Wallet) SignHashWithPassphrase(account accounts.Account,
 	passphrase string, hash []byte) ([]byte, error) {
-	return nil, nil
+	if w.Contains(account) == false {
+		return nil, accounts.ErrUnknownAccount
+	}
+	return w.KsIface.SignHashWithPassphrase(account, passphrase, hash)
 }
 
 /**
@@ -129,5 +146,8 @@ func (w *Wallet) SignHashWithPassphrase(account accounts.Account,
  */
 func (w *Wallet) SignTxWithPassphrase(account accounts.Account, passphrase string,
 	tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
-	return nil, nil
+	if w.Contains(account) == false {
+		return nil, accounts.ErrUnknownAccount
+	}
+	return w.KsIface.SignTxWithPassphrase(account, passphrase, tx, chainID)
 }
