@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/astaxie/beego/orm"
+	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/event"
@@ -41,7 +42,10 @@ type KStore struct {
  */
 type AccountKey struct {
 	*models.AccountKey
-	Address common.Address
+	*keystore.Key
+
+	Account *accounts.Account
+	abort   chan struct{}
 }
 
 type Wallet struct {

@@ -39,7 +39,19 @@ func NewKeyStore(keydir string, scryptN, scryptP int) keystore.KeyStore {
 	return kstore
 }
 
+/**
+ * NewAccount
+ * ----------
+ */
+func NewAccount(acct, ownerUuid string) *accounts.Account {
+	return &accounts.Account{
+		Address: common.HexToAddress(acct),
+		URL:     NewURL(ownerUuid),
+	}
+}
+
 func (ks *KStore) init() {
+	var key *keystore.Key
 	var accounts []models.AccountKey
 
 	orm := ks.Storage.GetOrm()
@@ -61,16 +73,23 @@ func (ks *KStore) init() {
 			}
 			ks.wallets[acct.OwnerUuid] = wallet
 		}
+		key = nil
+		acctRec := NewAccount(acct.Account, acct.OwnerUuid)
 		if acct.PassKey != "" {
-			wallet.unlock = true
+			var err error
+
+			key, err = ks.getDecryptedKey(acctRec, acct.PassKey)
+			if err == nil {
+				wallet.unlock = true
+			}
 		}
-		address := common.HexToAddress(acct.Account)
-		wallet.AcctMap[address.Hex()] = &AccountKey{
+		wallet.AcctMap[acctRec.Address.Hex()] = &AccountKey{
 			AccountKey: acct,
-			Address:    address,
+			Key:        key,
+			Account:    acctRec,
+			abort:      make(chan struct{}),
 		}
 	}
-	fmt.Printf("Wallet %v\n", ks.wallets)
 }
 
 /**
@@ -105,9 +124,7 @@ func (ks *KStore) Wallets() []accounts.Wallet {
 	wallets := make([]accounts.Wallet, 0, len(ks.wallets))
 	for _, w := range ks.wallets {
 		wallets = append(wallets, w)
-		fmt.Printf("Wallet %s, value %v\n", w.OwnerUuid.String(), w)
 	}
-	fmt.Printf("Get wallets from keystore %v\n", wallets)
 	return wallets
 }
 
@@ -150,16 +167,10 @@ func (ks *KStore) updater() {
  * ----------
  */
 func (ks *KStore) HasAddress(addr common.Address) bool {
-	acct := accounts.Account{
-		Address: addr,
-		URL:     accounts.URL{},
+	if ks.GetAccountKey(addr) == nil {
+		return false
 	}
-	for _, wallet := range ks.wallets {
-		if wallet.Contains(acct) {
-			return true
-		}
-	}
-	return false
+	return true
 }
 
 /**
@@ -179,11 +190,47 @@ func (ks *KStore) Accounts() []accounts.Account {
 }
 
 /**
+ * GetAccountKey
+ * -------------
+ */
+func (ks *KStore) GetAccountKey(addr common.Address) *AccountKey {
+	acct := accounts.Account{
+		Address: addr,
+		URL:     accounts.URL{},
+	}
+	return ks.getAccountKey(acct)
+}
+
+func (ks *KStore) getAccountKey(a accounts.Account) *AccountKey {
+	for _, wallet := range ks.wallets {
+		acctKey := wallet.Find(a)
+		if acctKey != nil {
+			return acctKey
+		}
+	}
+	return nil
+}
+
+/**
  * Delete
  * ------
  */
 func (ks *KStore) Delete(a accounts.Account, passpharse string) error {
-	return nil
+	acctKey := ks.getAccountKey(a)
+	if acctKey == nil {
+		return accounts.ErrUnknownAccount
+	}
+	orm := ks.Storage.GetOrm()
+	sql := "DELETE FROM account_key WHERE account = ?"
+	res, err := orm.Raw(sql, acctKey.Account).Exec()
+
+	if err == nil {
+		num, _ := res.RowsAffected()
+		fmt.Printf("Deleted %d rows\n", num)
+	} else {
+		fmt.Printf("Error returned %v\n", err)
+	}
+	return err
 }
 
 /**
@@ -225,7 +272,8 @@ func (ks *KStore) SignTxWithPassphrase(a accounts.Account, passphase string,
  * Unlock
  * ------
  */
-func (ks *KStore) Unlock(a accounts.Account, passphase string) error {
+func (ks *KStore) Unlock(a accounts.Account, passphrase string) error {
+	fmt.Printf("Key store unlock account %v, pass %s\n", a, passphrase)
 	return nil
 }
 
@@ -313,6 +361,11 @@ func (ks *KStore) ImportPreSaleKey(keyJSON []byte,
 	passphrase string) (accounts.Account, error) {
 	acct := accounts.Account{}
 	return acct, nil
+}
+
+func (ks *KStore) getDecryptedKey(a *accounts.Account,
+	passphrase string) (*keystore.Key, error) {
+	return nil, nil
 }
 
 /**
@@ -408,11 +461,47 @@ func (ks *SqlKeyStore) StoreKey(filename string, key *keystore.Key, auth string)
 	return ks.StoreKeyUuid(key, key.Id, auth)
 }
 
+func (ks *SqlKeyStore) GetKey(addr common.Address,
+	path, auth string) (*keystore.Key, error) {
+	return ks.GetKeyUuid(addr, uuid.Parse(path), auth)
+}
+
+/**
+ * GetKeyUuid
+ * ----------
+ */
 func (ks *SqlKeyStore) GetKeyUuid(addr common.Address,
 	owner uuid.UUID, auth string) (*keystore.Key, error) {
+	var accounts []models.AccountKey
+
+	orm := ks.GetOrm()
+	sql := fmt.Sprintf("SELECT * FROM account_key WHERE Account = %s", addr.Hex())
+
+	orm.Raw(sql).QueryRows(&accounts)
+	fmt.Printf("Query returned %v\n", accounts)
+	if len(accounts) > 0 {
+		acct := accounts[0]
+		addr, err := hex.DecodeString(acct.Account)
+		if err != nil {
+			return nil, err
+		}
+		privKey, err := crypto.HexToECDSA(acct.PrivKey)
+		if err != nil {
+			return nil, err
+		}
+		return &keystore.Key{
+			Id:         owner,
+			Address:    common.BytesToAddress(addr),
+			PrivateKey: privKey,
+		}, nil
+	}
 	return nil, nil
 }
 
+/**
+ * StoreKeyUuid
+ * ------------
+ */
 func (ks *SqlKeyStore) StoreKeyUuid(k *keystore.Key, owner uuid.UUID, auth string) error {
 	keyRec := &models.AccountKey{
 		Account:   k.Address.Hex(),

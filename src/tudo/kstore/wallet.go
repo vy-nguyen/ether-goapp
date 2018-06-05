@@ -15,15 +15,19 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
+func NewURL(path string) accounts.URL {
+	return accounts.URL{
+		Scheme: "sql",
+		Path:   path,
+	}
+}
+
 /**
  * URL
  * ---
  */
 func (w *Wallet) URL() accounts.URL {
-	return accounts.URL{
-		Scheme: "sql",
-		Path:   w.OwnerUuid.String(),
-	}
+	return NewURL(w.OwnerUuid.String())
 }
 
 /**
@@ -64,7 +68,7 @@ func (w *Wallet) Accounts() []accounts.Account {
 	result := make([]accounts.Account, 0, len(w.AcctMap))
 	for _, actKey := range w.AcctMap {
 		result = append(result, accounts.Account{
-			Address: actKey.Address,
+			Address: actKey.Account.Address,
 			URL:     w.URL(),
 		})
 	}
@@ -76,16 +80,24 @@ func (w *Wallet) Accounts() []accounts.Account {
  * --------
  */
 func (w *Wallet) Contains(account accounts.Account) bool {
-	if w.AcctMap[account.Address.Hex()] == nil {
-		return false
+	if w.Find(account) != nil {
+		return true
+	}
+	return false
+}
+
+func (w *Wallet) Find(account accounts.Account) *AccountKey {
+	acctKey := w.AcctMap[account.Address.Hex()]
+	if acctKey == nil {
+		return nil
 	}
 	if w.URL() != account.URL {
 		if account.URL == (accounts.URL{}) {
-			return true
+			return acctKey
 		}
-		return false
+		return nil
 	}
-	return true
+	return acctKey
 }
 
 /**
