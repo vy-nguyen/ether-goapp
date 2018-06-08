@@ -78,7 +78,7 @@ func (ks *KStore) init() {
 		if acct.PassKey != "" {
 			var err error
 
-			key, err = ks.getDecryptedKey(acctRec, acct.PassKey)
+			key, err = getDecryptedKey(acct, "")
 			if err == nil {
 				wallet.unlock = true
 			}
@@ -238,7 +238,11 @@ func (ks *KStore) Delete(a accounts.Account, passpharse string) error {
  * --------
  */
 func (ks *KStore) SignHash(a accounts.Account, hash []byte) ([]byte, error) {
-	return nil, nil
+	acctKey := ks.getAccountKey(a)
+	if acctKey != nil && acctKey.Key != nil {
+		return crypto.Sign(hash, acctKey.Key.PrivateKey)
+	}
+	return nil, accounts.ErrUnknownAccount
 }
 
 /**
@@ -247,25 +251,54 @@ func (ks *KStore) SignHash(a accounts.Account, hash []byte) ([]byte, error) {
  */
 func (ks *KStore) SignTx(a accounts.Account, tx *types.Transaction,
 	chainId *big.Int) (*types.Transaction, error) {
-	return nil, nil
+	acctKey := ks.getAccountKey(a)
+
+	if acctKey != nil && acctKey.Key != nil {
+		privKey := acctKey.Key.PrivateKey
+		if chainId != nil {
+			return types.SignTx(tx, types.NewEIP155Signer(chainId), privKey)
+		}
+		return types.SignTx(tx, types.HomesteadSigner{}, privKey)
+	}
+	return nil, accounts.ErrUnknownAccount
 }
 
 /**
  * SignHashWithPassphrase
  * ----------------------
  */
-func (ks *KStore) SignHashWithPassphrase(a accounts.Account, passphase string,
+func (ks *KStore) SignHashWithPassphrase(a accounts.Account, passphrase string,
 	hash []byte) ([]byte, error) {
-	return nil, nil
+	acctKey := ks.getAccountKey(a)
+	if acctKey == nil {
+		return nil, accounts.ErrUnknownAccount
+	}
+	key, err := getDecryptedKey(acctKey.AccountKey, passphrase)
+	if err != nil {
+		return nil, err
+	}
+	return crypto.Sign(hash, key.PrivateKey)
 }
 
 /**
  * SignTxWithPassphrase
  * --------------------
  */
-func (ks *KStore) SignTxWithPassphrase(a accounts.Account, passphase string,
-	tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
-	return nil, nil
+func (ks *KStore) SignTxWithPassphrase(a accounts.Account, passphrase string,
+	tx *types.Transaction, chainId *big.Int) (*types.Transaction, error) {
+	acctKey := ks.getAccountKey(a)
+	if acctKey == nil {
+		return nil, accounts.ErrUnknownAccount
+	}
+	key, err := getDecryptedKey(acctKey.AccountKey, passphrase)
+	if key != nil {
+		privKey := acctKey.Key.PrivateKey
+		if chainId != nil {
+			return types.SignTx(tx, types.NewEIP155Signer(chainId), privKey)
+		}
+		return types.SignTx(tx, types.HomesteadSigner{}, privKey)
+	}
+	return nil, err
 }
 
 /**
@@ -274,7 +307,7 @@ func (ks *KStore) SignTxWithPassphrase(a accounts.Account, passphase string,
  */
 func (ks *KStore) Unlock(a accounts.Account, passphrase string) error {
 	fmt.Printf("Key store unlock account %v, pass %s\n", a, passphrase)
-	return nil
+	return ks.TimedUnlock(a, passphrase, 0)
 }
 
 /**
@@ -289,9 +322,30 @@ func (ks *KStore) Lock(addr common.Address) error {
  * TimedUnlock
  * -----------
  */
-func (ks *KStore) TimedUnlock(a accounts.Account, passphase string,
+func (ks *KStore) TimedUnlock(a accounts.Account, passphrase string,
 	timeout time.Duration) error {
+	acctKey := ks.getAccountKey(a)
+	if acctKey != nil {
+		key, err := getDecryptedKey(acctKey.AccountKey, "")
+		fmt.Printf("Got key %v, timeout %v\n", key, timeout)
+		if err != nil {
+			return err
+		}
+		acctKey.Key = key
+		go ks.expire(acctKey, timeout)
+	}
 	return nil
+}
+
+func (ks *KStore) expire(acctKey *AccountKey, timeout time.Duration) {
+	t := time.NewTimer(timeout)
+	defer t.Stop()
+	select {
+	case <-acctKey.abort:
+		// Exit out
+	case <-t.C:
+		// Timeout, encrypt back the key.
+	}
 }
 
 /**
@@ -363,9 +417,27 @@ func (ks *KStore) ImportPreSaleKey(keyJSON []byte,
 	return acct, nil
 }
 
-func (ks *KStore) getDecryptedKey(a *accounts.Account,
-	passphrase string) (*keystore.Key, error) {
-	return nil, nil
+func getDecryptedKey(acctKey *models.AccountKey, passwd string) (*keystore.Key, error) {
+	s := acctKey.Account
+	if s[0] == '0' {
+		s = s[1:]
+	}
+	if s[0] == 'x' || s[0] == 'X' {
+		s = s[1:]
+	}
+	addr, err := hex.DecodeString(s)
+	if err != nil {
+		return nil, err
+	}
+	privKey, err := crypto.HexToECDSA(acctKey.PrivKey)
+	if err != nil {
+		return nil, err
+	}
+	return &keystore.Key{
+		Id:         uuid.Parse(acctKey.OwnerUuid),
+		Address:    common.BytesToAddress(addr),
+		PrivateKey: privKey,
+	}, nil
 }
 
 /**
@@ -472,30 +544,17 @@ func (ks *SqlKeyStore) GetKey(addr common.Address,
  */
 func (ks *SqlKeyStore) GetKeyUuid(addr common.Address,
 	owner uuid.UUID, auth string) (*keystore.Key, error) {
-	var accounts []models.AccountKey
+	var results []models.AccountKey
 
 	orm := ks.GetOrm()
 	sql := fmt.Sprintf("SELECT * FROM account_key WHERE Account = %s", addr.Hex())
 
-	orm.Raw(sql).QueryRows(&accounts)
-	fmt.Printf("Query returned %v\n", accounts)
-	if len(accounts) > 0 {
-		acct := accounts[0]
-		addr, err := hex.DecodeString(acct.Account)
-		if err != nil {
-			return nil, err
-		}
-		privKey, err := crypto.HexToECDSA(acct.PrivKey)
-		if err != nil {
-			return nil, err
-		}
-		return &keystore.Key{
-			Id:         owner,
-			Address:    common.BytesToAddress(addr),
-			PrivateKey: privKey,
-		}, nil
+	orm.Raw(sql).QueryRows(&results)
+	if len(results) > 0 {
+		acct := &results[0]
+		return getDecryptedKey(acct, acct.PassKey)
 	}
-	return nil, nil
+	return nil, accounts.ErrUnknownAccount
 }
 
 /**
