@@ -8,17 +8,30 @@
 package kstore
 
 import (
+	"fmt"
 	"math/big"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pborman/uuid"
+	"tudo/models"
 )
 
 func NewURL(path string) accounts.URL {
 	return accounts.URL{
 		Scheme: "sql",
 		Path:   path,
+	}
+}
+
+func NewWallet(ks *KStore, ownerUuid string) *Wallet {
+	return &Wallet{
+		unlock:    false,
+		AcctMap:   make(map[string]*AccountKey),
+		OwnerUuid: uuid.Parse(ownerUuid),
+		KsIface:   ks,
 	}
 }
 
@@ -86,6 +99,10 @@ func (w *Wallet) Contains(account accounts.Account) bool {
 	return false
 }
 
+/**
+ * Find
+ * ----
+ */
 func (w *Wallet) Find(account accounts.Account) *AccountKey {
 	acctKey := w.AcctMap[account.Address.Hex()]
 	if acctKey == nil {
@@ -98,6 +115,34 @@ func (w *Wallet) Find(account accounts.Account) *AccountKey {
 		return nil
 	}
 	return acctKey
+}
+
+/**
+ * Remove
+ * ------
+ * Remove account from the wallet.
+ */
+func (w *Wallet) Remove(account accounts.Account) {
+	w.mu.Lock()
+	delete(w.AcctMap, account.Address.Hex())
+	w.mu.Unlock()
+}
+
+/**
+ * Add
+ * ---
+ * Add account to the wallet.
+ */
+func (w *Wallet) Add(acctRec *models.AccountKey,
+	key *keystore.Key, account *accounts.Account) {
+	w.mu.Lock()
+	w.AcctMap[account.Address.Hex()] = &AccountKey{
+		AccountKey: acctRec,
+		Key:        key,
+		Account:    account,
+		abort:      make(chan struct{}),
+	}
+	w.mu.Unlock()
 }
 
 /**
@@ -138,6 +183,11 @@ func (w *Wallet) SignTx(account accounts.Account,
 		return nil, accounts.ErrUnknownAccount
 	}
 	return w.KsIface.SignTx(account, tx, chainID)
+}
+
+func (w *Wallet) LogTx(tx *types.Transaction) {
+	w.KsIface.LogTx(tx)
+	fmt.Printf("Log tx hash %s\n", tx.Hash())
 }
 
 /**

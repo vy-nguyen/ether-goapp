@@ -65,12 +65,7 @@ func (ks *KStore) init() {
 		acct := &accounts[idx]
 		wallet := ks.wallets[acct.OwnerUuid]
 		if wallet == nil {
-			wallet = &Wallet{
-				unlock:    false,
-				AcctMap:   make(map[string]*AccountKey),
-				OwnerUuid: uuid.Parse(acct.OwnerUuid),
-				KsIface:   ks,
-			}
+			wallet = NewWallet(ks, acct.OwnerUuid)
 			ks.wallets[acct.OwnerUuid] = wallet
 		}
 		key = nil
@@ -83,13 +78,22 @@ func (ks *KStore) init() {
 				wallet.unlock = true
 			}
 		}
-		wallet.AcctMap[acctRec.Address.Hex()] = &AccountKey{
-			AccountKey: acct,
-			Key:        key,
-			Account:    acctRec,
-			abort:      make(chan struct{}),
-		}
+		wallet.Add(acct, key, acctRec)
 	}
+}
+
+/**
+ * AddWallet
+ * ---------
+ */
+func (ks *KStore) AddWallet(wallet *Wallet) {
+	ownerUuid := wallet.OwnerUuid.String()
+
+	ks.mu.Lock()
+	if ks.wallets[ownerUuid] == nil {
+		ks.wallets[wallet.OwnerUuid.String()] = wallet
+	}
+	ks.mu.Unlock()
 }
 
 /**
@@ -198,17 +202,21 @@ func (ks *KStore) GetAccountKey(addr common.Address) *AccountKey {
 		Address: addr,
 		URL:     accounts.URL{},
 	}
-	return ks.getAccountKey(acct)
+	acctKey, _ := ks.getAccountKey(acct)
+	return acctKey
 }
 
-func (ks *KStore) getAccountKey(a accounts.Account) *AccountKey {
+func (ks *KStore) getAccountKey(a accounts.Account) (*AccountKey, *Wallet) {
+	ks.mu.RLock()
+	defer ks.mu.RUnlock()
+
 	for _, wallet := range ks.wallets {
 		acctKey := wallet.Find(a)
 		if acctKey != nil {
-			return acctKey
+			return acctKey, wallet
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 /**
@@ -216,7 +224,7 @@ func (ks *KStore) getAccountKey(a accounts.Account) *AccountKey {
  * ------
  */
 func (ks *KStore) Delete(a accounts.Account, passpharse string) error {
-	acctKey := ks.getAccountKey(a)
+	acctKey, wallet := ks.getAccountKey(a)
 	if acctKey == nil {
 		return accounts.ErrUnknownAccount
 	}
@@ -226,6 +234,8 @@ func (ks *KStore) Delete(a accounts.Account, passpharse string) error {
 
 	if err == nil {
 		num, _ := res.RowsAffected()
+		wallet.Remove(a)
+
 		fmt.Printf("Deleted %d rows\n", num)
 	} else {
 		fmt.Printf("Error returned %v\n", err)
@@ -238,7 +248,7 @@ func (ks *KStore) Delete(a accounts.Account, passpharse string) error {
  * --------
  */
 func (ks *KStore) SignHash(a accounts.Account, hash []byte) ([]byte, error) {
-	acctKey := ks.getAccountKey(a)
+	acctKey, _ := ks.getAccountKey(a)
 	if acctKey != nil && acctKey.Key != nil {
 		return crypto.Sign(hash, acctKey.Key.PrivateKey)
 	}
@@ -246,12 +256,12 @@ func (ks *KStore) SignHash(a accounts.Account, hash []byte) ([]byte, error) {
 }
 
 /**
- * Sign
- * ----
+ * SignTx
+ * ------
  */
 func (ks *KStore) SignTx(a accounts.Account, tx *types.Transaction,
 	chainId *big.Int) (*types.Transaction, error) {
-	acctKey := ks.getAccountKey(a)
+	acctKey, _ := ks.getAccountKey(a)
 
 	if acctKey != nil && acctKey.Key != nil {
 		privKey := acctKey.Key.PrivateKey
@@ -264,12 +274,22 @@ func (ks *KStore) SignTx(a accounts.Account, tx *types.Transaction,
 }
 
 /**
+ * LogTx
+ * -----
+ */
+func (ks *KStore) LogTx(tx *types.Transaction) error {
+	orm := ks.Storage.GetOrm()
+	fmt.Printf("Log using orm %v\n", orm)
+	return nil
+}
+
+/**
  * SignHashWithPassphrase
  * ----------------------
  */
 func (ks *KStore) SignHashWithPassphrase(a accounts.Account, passphrase string,
 	hash []byte) ([]byte, error) {
-	acctKey := ks.getAccountKey(a)
+	acctKey, _ := ks.getAccountKey(a)
 	if acctKey == nil {
 		return nil, accounts.ErrUnknownAccount
 	}
@@ -286,7 +306,7 @@ func (ks *KStore) SignHashWithPassphrase(a accounts.Account, passphrase string,
  */
 func (ks *KStore) SignTxWithPassphrase(a accounts.Account, passphrase string,
 	tx *types.Transaction, chainId *big.Int) (*types.Transaction, error) {
-	acctKey := ks.getAccountKey(a)
+	acctKey, _ := ks.getAccountKey(a)
 	if acctKey == nil {
 		return nil, accounts.ErrUnknownAccount
 	}
@@ -324,7 +344,7 @@ func (ks *KStore) Lock(addr common.Address) error {
  */
 func (ks *KStore) TimedUnlock(a accounts.Account, passphrase string,
 	timeout time.Duration) error {
-	acctKey := ks.getAccountKey(a)
+	acctKey, _ := ks.getAccountKey(a)
 	if acctKey != nil {
 		key, err := getDecryptedKey(acctKey.AccountKey, "")
 		fmt.Printf("Got key %v, timeout %v\n", key, timeout)
@@ -386,6 +406,7 @@ func (ks *KStore) Export(a accounts.Account,
 func (ks *KStore) Import(keyJson []byte,
 	passphase, newPassphase string) (accounts.Account, error) {
 	acct := accounts.Account{}
+	fmt.Printf("Import json key %v, pass %s %s\n", keyJson, passphase, newPassphase)
 	return acct, nil
 }
 
@@ -395,7 +416,29 @@ func (ks *KStore) Import(keyJson []byte,
  */
 func (ks *KStore) ImportECDSA(priv *ecdsa.PrivateKey,
 	passphrase string) (accounts.Account, error) {
-	acct := accounts.Account{}
+	key := newKeyFromECDSA(priv)
+	acct := accounts.Account{
+		Address: key.Address,
+		URL:     NewURL(key.Id.String()),
+	}
+	_, wallet := ks.getAccountKey(acct)
+	if wallet != nil {
+		return accounts.Account{}, fmt.Errorf("account already exists")
+	}
+	ownerUuid := acct.URL.Path
+	if err := ks.Storage.StoreKey(ownerUuid, key, passphrase); err != nil {
+		return accounts.Account{}, err
+	}
+	wallet = NewWallet(ks, ownerUuid)
+	wallet.Add(&models.AccountKey{
+		Account:   key.Address.Hex(),
+		OwnerUuid: acct.URL.Path,
+		PassKey:   passphrase,
+		PrivKey:   hex.EncodeToString(crypto.FromECDSA(priv)),
+	}, key, &acct)
+
+	ks.AddWallet(wallet)
+	// Send event to update account manager
 	return acct, nil
 }
 

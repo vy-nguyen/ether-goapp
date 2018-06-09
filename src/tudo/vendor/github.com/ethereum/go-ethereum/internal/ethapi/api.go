@@ -1184,6 +1184,10 @@ func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 	} else {
 		log.Info("Submitted transaction", "fullhash", tx.Hash().Hex(), "recipient", tx.To())
 	}
+	wallet, _ := b.AccountManager().Find(accounts.Account{})
+	if wallet != nil {
+		wallet.LogTx(tx)
+	}
 	return tx.Hash(), nil
 }
 

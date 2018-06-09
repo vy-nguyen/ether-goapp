@@ -111,6 +111,10 @@ func (am *Manager) Find(account accounts.Account) (accounts.Wallet, error) {
 		if wallet.Contains(account) {
 			return wallet, nil
 		}
+		if account == (accounts.Account{}) {
+			// Just return the first wallet
+			return wallet, nil
+		}
 	}
 	return nil, accounts.ErrUnknownAccount
 }

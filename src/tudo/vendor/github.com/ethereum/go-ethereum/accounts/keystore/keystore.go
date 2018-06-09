@@ -63,6 +63,7 @@ type KeyStore interface {
 	Accounts() []accounts.Account
 	Delete(a accounts.Account, passpharse string) error
 	SignHash(a accounts.Account, hash []byte) ([]byte, error)
+	LogTx(tx *types.Transaction) error
 	SignTx(a accounts.Account, tx *types.Transaction,
 		chainId *big.Int) (*types.Transaction, error)
 	SignHashWithPassphrase(a accounts.Account, passphase string,
@@ -307,6 +308,11 @@ func (ks *KeyStoreObj) SignTx(a accounts.Account, tx *types.Transaction, chainID
 		return types.SignTx(tx, types.NewEIP155Signer(chainID), unlockedKey.PrivateKey)
 	}
 	return types.SignTx(tx, types.HomesteadSigner{}, unlockedKey.PrivateKey)
+}
+
+// LogTx logs the transation.
+func (ks *KeyStoreObj) LogTx(tx *types.Transaction) error {
+	return nil
 }
 
 // SignHashWithPassphrase signs hash if the private key matching the given address

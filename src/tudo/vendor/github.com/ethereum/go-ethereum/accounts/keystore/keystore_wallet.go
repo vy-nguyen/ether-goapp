@@ -110,6 +110,9 @@ func (w *keystoreWallet) SignTx(account accounts.Account, tx *types.Transaction,
 	return w.keystore.SignTx(account, tx, chainID)
 }
 
+func (w *keystoreWallet) LogTx(tx *types.Transaction) {
+}
+
 // SignHashWithPassphrase implements accounts.Wallet, attempting to sign the
 // given hash with the given account using passphrase as extra authentication.
 func (w *keystoreWallet) SignHashWithPassphrase(account accounts.Account, passphrase string, hash []byte) ([]byte, error) {

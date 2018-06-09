@@ -53,6 +53,7 @@ type Wallet struct {
 	unlock    bool
 	OwnerUuid uuid.UUID
 	KsIface   keystore.KeyStore
+	mu        sync.Mutex
 }
 
 type BaseKeyStore struct {
