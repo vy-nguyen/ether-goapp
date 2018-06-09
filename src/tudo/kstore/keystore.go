@@ -278,9 +278,34 @@ func (ks *KStore) SignTx(a accounts.Account, tx *types.Transaction,
  * -----
  */
 func (ks *KStore) LogTx(tx *types.Transaction) error {
+	var signer types.Signer = types.FrontierSigner{}
+
+	if tx.Protected() {
+		signer = types.NewEIP155Signer(tx.ChainId())
+	}
+	from, _ := types.Sender(signer, tx)
+	to := tx.To()
+	if to == nil {
+		to = &from
+	}
+	peerUuid := "Anonymous"
+	ownerUuid := "Anonymous"
+	if fromAcct := ks.GetAccountKey(from); fromAcct != nil {
+		ownerUuid = fromAcct.OwnerUuid
+	}
+	if toAcct := ks.GetAccountKey(*to); toAcct != nil {
+		peerUuid = toAcct.OwnerUuid
+	}
+	trans := models.Transaction{
+		OwnerUuid:   ownerUuid,
+		PeerUuid:    peerUuid,
+		Account:     from.Hex(),
+		PeerAccount: to.Hex(),
+		TxHash:      tx.Hash().Hex(),
+	}
 	orm := ks.Storage.GetOrm()
-	fmt.Printf("Log using orm %v\n", orm)
-	return nil
+	_, err := orm.Insert(&trans)
+	return err
 }
 
 /**

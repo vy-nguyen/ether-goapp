@@ -21,7 +21,7 @@ type Transaction struct {
 	PeerUuid    string `orm:"size(64)"`
 	Account     string `orm:"index;size(64)"`
 	PeerAccount string `orm:"size(64)"`
-	TxHash      string `orm:"size(64)"`
-	BlockHash   string `orm:"size(64)"`
+	TxHash      string `orm:"size(128)"`
+	BlockHash   string `orm:"size(128)"`
 	BlockNumber uint64
 }
