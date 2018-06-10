@@ -17,11 +17,9 @@ type AccountKey struct {
 }
 
 type Transaction struct {
-	OwnerUuid   string `orm:"pk;size(64)"`
+	TxHash      string `orm:"pk;size(128)"`
+	OwnerUuid   string `orm:"index;size(64)"`
 	PeerUuid    string `orm:"size(64)"`
 	Account     string `orm:"index;size(64)"`
-	PeerAccount string `orm:"size(64)"`
-	TxHash      string `orm:"size(128)"`
-	BlockHash   string `orm:"size(128)"`
-	BlockNumber uint64
+	PeerAccount string `orm:"index;size(64)"`
 }

@@ -8,7 +8,6 @@
 package kstore
 
 import (
-	"fmt"
 	"math/big"
 
 	ethereum "github.com/ethereum/go-ethereum"
@@ -187,7 +186,6 @@ func (w *Wallet) SignTx(account accounts.Account,
 
 func (w *Wallet) LogTx(tx *types.Transaction) {
 	w.KsIface.LogTx(tx)
-	fmt.Printf("Log tx hash %s\n", tx.Hash())
 }
 
 /**
