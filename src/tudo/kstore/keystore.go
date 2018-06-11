@@ -97,11 +97,11 @@ func (ks *KStore) AddWallet(wallet *Wallet) {
 }
 
 /**
- * SaveAccountKey
- * --------------
+ * SaveAccountInfo
+ * ---------------
  */
-func (ks *KStore) SaveAccountKey(key *keystore.Key, passphase string,
-	ownerUuid *uuid.UUID, walletUuid *uuid.UUID) error {
+func (ks *KStore) SaveAccountInfo(key *keystore.Key, name, passphase string,
+	ownerUuid *uuid.UUID, walletUuid *uuid.UUID) (*models.Account, error) {
 	if walletUuid == nil {
 		uid := uuid.NewRandom()
 		walletUuid = &uid
@@ -109,15 +109,18 @@ func (ks *KStore) SaveAccountKey(key *keystore.Key, passphase string,
 	if ownerUuid == nil {
 		ownerUuid = &key.Id
 	}
+	if name == "" {
+		name = "Anonymous"
+	}
 	orm := ks.Storage.GetOrm()
 	acctRec := &models.Account{
 		OwnerUuid:  ownerUuid.String(),
 		WalletUuid: walletUuid.String(),
-		PublicName: "Anonymous",
+		PublicName: name,
 		Account:    key.Address.Hex(),
 	}
 	_, err := orm.Insert(acctRec)
-	return err
+	return acctRec, err
 }
 
 /**
@@ -297,11 +300,11 @@ func (ks *KStore) LogTx(tx *types.Transaction) error {
 		peerUuid = toAcct.OwnerUuid
 	}
 	trans := models.Transaction{
-		OwnerUuid:   ownerUuid,
-		PeerUuid:    peerUuid,
-		Account:     from.Hex(),
-		PeerAccount: to.Hex(),
-		TxHash:      tx.Hash().Hex(),
+		FromUuid: ownerUuid,
+		ToUuid:   peerUuid,
+		FromAcct: from.Hex(),
+		ToAcct:   to.Hex(),
+		TxHash:   tx.Hash().Hex(),
 	}
 	orm := ks.Storage.GetOrm()
 	_, err := orm.Insert(&trans)
@@ -407,12 +410,30 @@ func (ks *KStore) Find(a accounts.Account) (accounts.Account, error) {
  * ----------
  */
 func (ks *KStore) NewAccount(passphrase string) (accounts.Account, error) {
-	key, account, err := storeNewKey(ks.Storage, crand.Reader, passphrase)
+	key, account, err := storeNewKey(ks.Storage, crand.Reader, "", passphrase)
 	if err != nil {
 		return accounts.Account{}, err
 	}
-	err = ks.SaveAccountKey(key, passphrase, nil, nil)
+	_, err = ks.SaveAccountInfo(key, "", passphrase, nil, nil)
 	return account, err
+}
+
+func (ks *KStore) NewAccountOwner(ownerUuid, walletUuid,
+	name, passphrase string) (*accounts.Account, *models.Account, error) {
+	key, account, err := storeNewKey(ks.Storage, crand.Reader, ownerUuid, passphrase)
+	if err != nil {
+		return nil, nil, err
+	}
+	owner := uuid.Parse(ownerUuid)
+	if owner == nil {
+		owner = uuid.NewRandom()
+	}
+	wallet := uuid.Parse(walletUuid)
+	if wallet == nil {
+		wallet = uuid.NewRandom()
+	}
+	model, err := ks.SaveAccountInfo(key, name, passphrase, &owner, &wallet)
+	return &account, model, err
 }
 
 /**
@@ -539,19 +560,26 @@ func newKey(rand io.Reader) (*keystore.Key, error) {
  * -----------
  */
 func storeNewKey(ks keystore.KeyStoreIf, rand io.Reader,
-	auth string) (*keystore.Key, accounts.Account, error) {
+	ownerUuid, auth string) (*keystore.Key, accounts.Account, error) {
 	key, err := newKey(rand)
 	if err != nil {
 		return nil, accounts.Account{}, err
 	}
+	owner := key.Id
+	if ownerUuid != "" {
+		if owner = uuid.Parse(ownerUuid); owner != nil {
+			key.Id = owner
+		}
+	}
+	ownerStr := owner.String()
 	a := accounts.Account{
 		Address: key.Address,
 		URL: accounts.URL{
 			Scheme: "sql",
-			Path:   key.Id.String(),
+			Path:   ownerStr,
 		},
 	}
-	if err := ks.StoreKey(a.URL.Path, key, auth); err != nil {
+	if err := ks.StoreKey(ownerStr, key, auth); err != nil {
 		return nil, a, err
 	}
 	return key, a, err
@@ -607,6 +635,48 @@ func (ks *SqlKeyStore) GetKey(addr common.Address,
 }
 
 /**
+ * GetAccount
+ * ----------
+ */
+func (ks *SqlKeyStore) GetAccount(addr common.Address) ([]models.Account, error) {
+	return nil, nil
+}
+
+/**
+ * GetUserAccount
+ * --------------
+ */
+func (ks *SqlKeyStore) GetUserAccount(ownerUuid uuid.UUID) ([]models.Account, error) {
+	return nil, nil
+}
+
+/**
+ * GetWallet
+ * ---------
+ */
+func (ks *SqlKeyStore) GetWallet(walletUuid uuid.UUID) ([]models.Account, error) {
+	return nil, nil
+}
+
+/**
+ * GetTransaction
+ * --------------
+ */
+func (ks *SqlKeyStore) GetTransaction(addr *common.Address,
+	owner *uuid.UUID, from bool) ([]models.Transaction, error) {
+	return nil, nil
+}
+
+/**
+ * UpdateAccount
+ * -------------
+ */
+func (ks *SqlKeyStore) UpdateAccount(addr common.Address,
+	name, passkey string, walletUuid uuid.UUID) error {
+	return nil
+}
+
+/**
  * GetKeyUuid
  * ----------
  */
@@ -620,7 +690,7 @@ func (ks *SqlKeyStore) GetKeyUuid(addr common.Address,
 	orm.Raw(sql).QueryRows(&results)
 	if len(results) > 0 {
 		acct := &results[0]
-		return getDecryptedKey(acct, acct.PassKey)
+		return getDecryptedKey(acct, auth)
 	}
 	return nil, accounts.ErrUnknownAccount
 }

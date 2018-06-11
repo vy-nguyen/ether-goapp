@@ -22,9 +22,16 @@ import (
 type KsInterface interface {
 	keystore.KeyStoreIf
 
+	GetOrm() orm.Ormer
+	GetAccount(addr common.Address) ([]models.Account, error)
+	GetUserAccount(ownerUuid uuid.UUID) ([]models.Account, error)
+	GetWallet(walletUuid uuid.UUID) ([]models.Account, error)
+	GetTransaction(addr *common.Address,
+		owner *uuid.UUID, from bool) ([]models.Transaction, error)
+
 	GetKeyUuid(addr common.Address, owner uuid.UUID, auth string) (*keystore.Key, error)
 	StoreKeyUuid(k *keystore.Key, owner uuid.UUID, auth string) error
-	GetOrm() orm.Ormer
+	UpdateAccount(addr common.Address, name, passkey string, walletUuid uuid.UUID) error
 }
 
 type KStore struct {

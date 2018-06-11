@@ -11,12 +11,11 @@ import (
 	"io/ioutil"
 	"tudo/kstore"
 
-	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/node"
 )
 
-func makeAccountManager(conf *node.Config) (accounts.Manager, error) {
+func makeAccountManager(conf *node.Config) (AmInterface, error) {
 	scryptN, scryptP, keydir, err := conf.AccountConfig()
 
 	if keydir == "" {

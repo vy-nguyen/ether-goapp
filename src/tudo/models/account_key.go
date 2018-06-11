@@ -3,10 +3,11 @@ package models
 import ()
 
 type Account struct {
-	OwnerUuid  string `orm:"pk;size(64)"`
+	Account    string `orm:"pk;size(128)"`
+	OwnerUuid  string `orm:"index;size(64)"`
 	WalletUuid string `orm:"index;size(64)"`
-	PublicName string `orm:"size(128)"`
-	Account    string `orm:"size(128)"`
+	PublicName string `orm:"size(64)"`
+	PassKey    string `orm:"size(64)"`
 }
 
 type AccountKey struct {
@@ -17,9 +18,9 @@ type AccountKey struct {
 }
 
 type Transaction struct {
-	TxHash      string `orm:"pk;size(128)"`
-	OwnerUuid   string `orm:"index;size(64)"`
-	PeerUuid    string `orm:"size(64)"`
-	Account     string `orm:"index;size(64)"`
-	PeerAccount string `orm:"index;size(64)"`
+	TxHash   string `orm:"pk;size(128)"`
+	FromUuid string `orm:"index;size(64)"`
+	ToUuid   string `orm:"index;size(64)"`
+	FromAcct string `orm:"index;size(64)"`
+	ToAcct   string `orm:"index;size(64)"`
 }
