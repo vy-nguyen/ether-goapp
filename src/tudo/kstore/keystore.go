@@ -31,7 +31,7 @@ import (
  * NewKeyStore
  * -----------
  */
-func NewKeyStore(keydir string, scryptN, scryptP int) keystore.KeyStore {
+func NewKeyStore(keydir string, scryptN, scryptP int) KStoreIface {
 	kstore := &KStore{
 		Storage: NewSqlKeyStore(scryptN, scryptP),
 	}
@@ -94,33 +94,6 @@ func (ks *KStore) AddWallet(wallet *Wallet) {
 		ks.wallets[wallet.OwnerUuid.String()] = wallet
 	}
 	ks.mu.Unlock()
-}
-
-/**
- * SaveAccountInfo
- * ---------------
- */
-func (ks *KStore) SaveAccountInfo(key *keystore.Key, name, passphase string,
-	ownerUuid *uuid.UUID, walletUuid *uuid.UUID) (*models.Account, error) {
-	if walletUuid == nil {
-		uid := uuid.NewRandom()
-		walletUuid = &uid
-	}
-	if ownerUuid == nil {
-		ownerUuid = &key.Id
-	}
-	if name == "" {
-		name = "Anonymous"
-	}
-	orm := ks.Storage.GetOrm()
-	acctRec := &models.Account{
-		OwnerUuid:  ownerUuid.String(),
-		WalletUuid: walletUuid.String(),
-		PublicName: name,
-		Account:    key.Address.Hex(),
-	}
-	_, err := orm.Insert(acctRec)
-	return acctRec, err
 }
 
 /**
@@ -414,25 +387,26 @@ func (ks *KStore) NewAccount(passphrase string) (accounts.Account, error) {
 	if err != nil {
 		return accounts.Account{}, err
 	}
-	_, err = ks.SaveAccountInfo(key, "", passphrase, nil, nil)
+	_, err = ks.Storage.StoreAccount(key, "", passphrase, nil, nil)
 	return account, err
 }
 
 func (ks *KStore) NewAccountOwner(ownerUuid, walletUuid,
 	name, passphrase string) (*accounts.Account, *models.Account, error) {
-	key, account, err := storeNewKey(ks.Storage, crand.Reader, ownerUuid, passphrase)
-	if err != nil {
-		return nil, nil, err
-	}
 	owner := uuid.Parse(ownerUuid)
 	if owner == nil {
 		owner = uuid.NewRandom()
+		ownerUuid = owner.String()
 	}
 	wallet := uuid.Parse(walletUuid)
 	if wallet == nil {
 		wallet = uuid.NewRandom()
 	}
-	model, err := ks.SaveAccountInfo(key, name, passphrase, &owner, &wallet)
+	key, account, err := storeNewKey(ks.Storage, crand.Reader, ownerUuid, passphrase)
+	if err != nil {
+		return nil, nil, err
+	}
+	model, err := ks.Storage.StoreAccount(key, name, passphrase, &owner, &wallet)
 	return &account, model, err
 }
 
@@ -586,34 +560,14 @@ func storeNewKey(ks keystore.KeyStoreIf, rand io.Reader,
 }
 
 /**
- * BaseKeyStore
+ * Base KeyStore
  */
-func (ks *BaseKeyStore) GetKey(addr common.Address,
-	filename string, auth string) (*keystore.Key, error) {
-	fmt.Println("Get key addr %v", addr)
-	return nil, nil
-}
-
-func (ks *BaseKeyStore) StoreKey(filename string, k *keystore.Key, auth string) error {
-	return nil
+func (ks *BaseKeyStore) GetOrm() orm.Ormer {
+	return ks.ormHandler
 }
 
 func (ks *BaseKeyStore) JoinPath(filename string) string {
 	return filename
-}
-
-func (ks *BaseKeyStore) GetKeyUuid(addr common.Address,
-	owner uuid.UUID, auth string) (*keystore.Key, error) {
-	return nil, nil
-}
-
-func (ks *BaseKeyStore) StoreKeyUuid(k *keystore.Key,
-	owner uuid.UUID, auth string) error {
-	return nil
-}
-
-func (ks *BaseKeyStore) GetOrm() orm.Ormer {
-	return ks.ormHandler
 }
 
 /**
@@ -693,6 +647,34 @@ func (ks *SqlKeyStore) GetKeyUuid(addr common.Address,
 		return getDecryptedKey(acct, auth)
 	}
 	return nil, accounts.ErrUnknownAccount
+}
+
+/**
+ * StoreAccountKey
+ * ---------------
+ */
+func (ks *SqlKeyStore) StoreAccount(key *keystore.Key, name, passphrase string,
+	ownerUuid *uuid.UUID, walletUuid *uuid.UUID) (*models.Account, error) {
+	if walletUuid == nil {
+		uid := uuid.NewRandom()
+		walletUuid = &uid
+	}
+	if ownerUuid == nil {
+		ownerUuid = &key.Id
+	}
+	if name == "" {
+		name = "Anonymous"
+	}
+	orm := ks.ormHandler
+	acctRec := &models.Account{
+		OwnerUuid:  ownerUuid.String(),
+		WalletUuid: walletUuid.String(),
+		PublicName: name,
+		Account:    key.Address.Hex(),
+		PassKey:    passphrase,
+	}
+	_, err := orm.Insert(acctRec)
+	return acctRec, err
 }
 
 /**

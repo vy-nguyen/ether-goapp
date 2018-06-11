@@ -9,14 +9,15 @@
 package ethcore
 
 import (
-	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/rpc"
+	"tudo/kstore"
 )
 
 type TudoNode struct {
 	*node.Node
-	kstore keystore.KeyStore
+	// kstore keystore.KeyStore
+	kstore kstore.KStoreIface
 }
 
 func NewTudoNode(conf *node.Config) (*node.Node, error) {
@@ -27,11 +28,11 @@ func NewTudoNode(conf *node.Config) (*node.Node, error) {
 	tudo := &TudoNode{n, nil}
 	tudo.NodeIf = tudo
 
-	accman, err := makeAccountManager(conf)
+	accman, ksIface, err := makeAccountManager(conf)
 	if err != nil {
 		return tudo.Node, nil
 	}
-	tudo.kstore = accman.DefaultKeyStore()
+	tudo.kstore = ksIface
 	tudo.Node.SetAccountManager(accman)
 	return tudo.Node, err
 }

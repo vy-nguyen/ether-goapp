@@ -15,17 +15,18 @@ import (
 	"github.com/ethereum/go-ethereum/node"
 )
 
-func makeAccountManager(conf *node.Config) (AmInterface, error) {
+func makeAccountManager(conf *node.Config) (AmInterface, kstore.KStoreIface, error) {
 	scryptN, scryptP, keydir, err := conf.AccountConfig()
 
 	if keydir == "" {
 		keydir, err = ioutil.TempDir("", "go-eth-keystore")
 	}
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	kstore := []keystore.KeyStore{
-		kstore.NewKeyStore(keydir, scryptN, scryptP),
+	ksIface := kstore.NewKeyStore(keydir, scryptN, scryptP)
+	ksArray := []keystore.KeyStore{
+		ksIface,
 	}
-	return NewManager(kstore...), nil
+	return NewManager(ksArray...), ksIface, nil
 }

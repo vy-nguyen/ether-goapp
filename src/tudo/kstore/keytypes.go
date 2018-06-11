@@ -28,10 +28,19 @@ type KsInterface interface {
 	GetWallet(walletUuid uuid.UUID) ([]models.Account, error)
 	GetTransaction(addr *common.Address,
 		owner *uuid.UUID, from bool) ([]models.Transaction, error)
-
 	GetKeyUuid(addr common.Address, owner uuid.UUID, auth string) (*keystore.Key, error)
+
+	StoreAccount(k *keystore.Key, name, passwd string,
+		ownerUuid *uuid.UUID, walletUuid *uuid.UUID) (*models.Account, error)
 	StoreKeyUuid(k *keystore.Key, owner uuid.UUID, auth string) error
 	UpdateAccount(addr common.Address, name, passkey string, walletUuid uuid.UUID) error
+}
+
+type KStoreIface interface {
+	keystore.KeyStore
+
+	NewAccountOwner(ownerUuid, walletUuid,
+		name, passphrase string) (*accounts.Account, *models.Account, error)
 }
 
 type KStore struct {
