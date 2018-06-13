@@ -11,6 +11,7 @@ import (
 	"crypto/ecdsa"
 	crand "crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -32,9 +33,11 @@ import (
  * -----------
  */
 func NewKeyStore(keydir string, scryptN, scryptP int) KStoreIface {
+	storage := NewSqlKeyStore(scryptN, scryptP)
 	kstore := &KStore{
-		Storage: NewSqlKeyStore(scryptN, scryptP),
+		Storage: storage,
 	}
+	storage.SetKeyStoreRef(kstore)
 	kstore.init()
 	return kstore
 }
@@ -80,6 +83,14 @@ func (ks *KStore) init() {
 		}
 		wallet.Add(acct, key, acctRec)
 	}
+}
+
+/**
+ * GetStorageIf
+ * ------------
+ */
+func (ks *KStore) GetStorageIf() KsInterface {
+	return ks.Storage
 }
 
 /**
@@ -570,19 +581,31 @@ func (ks *BaseKeyStore) JoinPath(filename string) string {
 	return filename
 }
 
+func (ks *BaseKeyStore) SetKeyStoreRef(kstore *KStore) {
+	ks.kstore = kstore
+}
+
 /**
  * SQL based keystore.
  */
 func NewSqlKeyStore(scryptN, scryptP int) *SqlKeyStore {
 	return &SqlKeyStore{
-		BaseKeyStore: BaseKeyStore{scryptN, scryptP, orm.NewOrm()},
+		BaseKeyStore: BaseKeyStore{scryptN, scryptP, nil, orm.NewOrm()},
 	}
 }
 
+/**
+ * StoreKey
+ * --------
+ */
 func (ks *SqlKeyStore) StoreKey(filename string, key *keystore.Key, auth string) error {
 	return ks.StoreKeyUuid(key, key.Id, auth)
 }
 
+/**
+ * GetKey
+ * ------
+ */
 func (ks *SqlKeyStore) GetKey(addr common.Address,
 	path, auth string) (*keystore.Key, error) {
 	return ks.GetKeyUuid(addr, uuid.Parse(path), auth)
@@ -593,7 +616,10 @@ func (ks *SqlKeyStore) GetKey(addr common.Address,
  * ----------
  */
 func (ks *SqlKeyStore) GetAccount(addr common.Address) ([]models.Account, error) {
-	return nil, nil
+	sql := fmt.Sprintf(
+		"SELECT * from account WHERE account=\"%s\"", addr.Hex())
+
+	return ks.getAccountQuery(sql)
 }
 
 /**
@@ -601,7 +627,10 @@ func (ks *SqlKeyStore) GetAccount(addr common.Address) ([]models.Account, error)
  * --------------
  */
 func (ks *SqlKeyStore) GetUserAccount(ownerUuid uuid.UUID) ([]models.Account, error) {
-	return nil, nil
+	sql := fmt.Sprintf(
+		"SELECT * from account WHERE owner_uuid=\"%s\"", ownerUuid.String())
+
+	return ks.getAccountQuery(sql)
 }
 
 /**
@@ -609,16 +638,73 @@ func (ks *SqlKeyStore) GetUserAccount(ownerUuid uuid.UUID) ([]models.Account, er
  * ---------
  */
 func (ks *SqlKeyStore) GetWallet(walletUuid uuid.UUID) ([]models.Account, error) {
-	return nil, nil
+	sql := fmt.Sprintf(
+		"SELECT * from account WHERE wallet_uuid=\"%s\"", walletUuid.String())
+
+	return ks.getAccountQuery(sql)
 }
 
 /**
  * GetTransaction
  * --------------
  */
-func (ks *SqlKeyStore) GetTransaction(addr *common.Address,
-	owner *uuid.UUID, from bool) ([]models.Transaction, error) {
-	return nil, nil
+func (ks *SqlKeyStore) GetTransaction(addr *common.Address, owner *uuid.UUID,
+	from bool, offset, limit int) ([]models.Transaction, error) {
+	var sql string
+	acct := "from_acct"
+	uuid := "from_uuid"
+
+	if from == false {
+		acct = "to_acct"
+		uuid = "to_uuid"
+	}
+	if addr != nil && owner != nil {
+		sql = fmt.Sprintf(
+			"SELECT * from transaction where %s=\"%s\" AND %s=\"%s\"",
+			acct, addr.Hex(), uuid, owner.String())
+	} else if addr != nil {
+		sql = fmt.Sprintf("SELECT * from transaction where %s=\"%s\"", acct, addr.Hex())
+	} else if owner != nil {
+		sql = fmt.Sprintf(
+			"SELECT * from transaction where %s=\"%s\"",
+			uuid, owner.String())
+	} else {
+		return nil, errors.New("Invalid arguments")
+	}
+	if limit != 0 {
+		sql = fmt.Sprintf("%s LIMIT %d OFFSET %d", sql, limit, offset)
+	}
+	return ks.getTransQuery(sql)
+}
+
+/**
+ * getAccountQuery
+ * ---------------
+ */
+func (ks *SqlKeyStore) getAccountQuery(sql string) ([]models.Account, error) {
+	var results []models.Account
+	orm := ks.GetOrm()
+
+	orm.Raw(sql).QueryRows(&results)
+	if len(results) > 0 {
+		return results, nil
+	}
+	return nil, errors.New("No account record found")
+}
+
+/**
+ * getTransQuery
+ * -------------
+ */
+func (ks *SqlKeyStore) getTransQuery(sql string) ([]models.Transaction, error) {
+	var results []models.Transaction
+	orm := ks.GetOrm()
+
+	orm.Raw(sql).QueryRows(&results)
+	if len(results) > 0 {
+		return results, nil
+	}
+	return nil, errors.New("No transaction record found")
 }
 
 /**
@@ -626,8 +712,24 @@ func (ks *SqlKeyStore) GetTransaction(addr *common.Address,
  * -------------
  */
 func (ks *SqlKeyStore) UpdateAccount(addr common.Address,
-	name, passkey string, walletUuid uuid.UUID) error {
-	return nil
+	name, passkey string, ownerUuid, walletUuid uuid.UUID) error {
+	sql := fmt.Sprintf(
+		"SELECT * from account WHERE account=\"%s\" and owner_uuid=\"%s\"",
+		addr.Hex(), ownerUuid.String())
+
+	results, err := ks.getAccountQuery(sql)
+	if err != nil {
+		return err
+	}
+	obj := &results[0]
+	if walletUuid != nil {
+		obj.WalletUuid = walletUuid.String()
+	}
+	obj.PublicName = name
+	obj.PassKey = passkey
+
+	_, err = ks.ormHandler.Update(obj)
+	return err
 }
 
 /**

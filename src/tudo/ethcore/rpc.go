@@ -9,6 +9,9 @@ package ethcore
 
 import (
 	"fmt"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/pborman/uuid"
 )
 
 type TudoNodeAPI struct {
@@ -27,12 +30,27 @@ func NewTudoNodeAPI(n *TudoNode) *TudoNodeAPI {
  *    localhost:8545
  */
 func (api *TudoNodeAPI) UpdateAccount(address, name,
-	password, walletUuid string) map[string]interface{} {
-	accman := api.node.AccountManager()
-	kstore := api.node.kstore
+	password, ownerUuid, walletUuid string) map[string]interface{} {
+	ks := api.node.kstore.GetStorageIf()
 
-	fmt.Printf("Account manager %v, key %v\n", accman, kstore)
 	out := make(map[string]interface{})
+	if !common.IsHexAddress(address) {
+		out["error"] = fmt.Sprintf("Invaid address %s", address)
+		return out
+	}
+	addr := common.HexToAddress(address)
+	wallet := uuid.Parse(walletUuid)
+	owner := uuid.Parse(ownerUuid)
+
+	if owner == nil {
+		out["error"] = fmt.Sprintf("Invalid owner uuid %s", ownerUuid)
+	}
+	err := ks.UpdateAccount(addr, name, password, owner, wallet)
+	if err != nil {
+		out["error"] = err.Error()
+	}
+	out["address"] = addr.Hex()
+	out["ownerUuid"] = owner.String()
 	return out
 }
 
@@ -48,11 +66,9 @@ func (api *TudoNodeAPI) NewAccount(ownerUuid, walletUuid,
 	acct, model, err := kstore.NewAccountOwner(ownerUuid, walletUuid, name, password)
 	if err != nil {
 		out["error"] = err.Error()
-		out["address"] = "0"
 		out["ownerUuid"] = ownerUuid
 		out["walletUuid"] = walletUuid
 	} else {
-		out["error"] = ""
 		out["address"] = acct.Address.Hex()
 		out["ownerUuid"] = model.OwnerUuid
 		out["walletUuid"] = model.WalletUuid
@@ -64,9 +80,20 @@ func (api *TudoNodeAPI) NewAccount(ownerUuid, walletUuid,
  * GetAccount
  * ----------
  */
-func (api *TudoNodeApi) GetAccount(address string) map[string]interface{} {
+func (api *TudoNodeAPI) GetAccount(address string) map[string]interface{} {
 	out := make(map[string]interface{})
 
+	if !common.IsHexAddress(address) {
+		out["error"] = fmt.Sprintf("Invaid address %s", address)
+		return out
+	}
+	ks := api.node.kstore.GetStorageIf()
+	results, err := ks.GetAccount(common.HexToAddress(address))
+	if err != nil {
+		out["error"] = err.Error()
+	} else {
+		out["account"] = results
+	}
 	return out
 }
 
@@ -74,9 +101,20 @@ func (api *TudoNodeApi) GetAccount(address string) map[string]interface{} {
  * GetUserAccount
  * --------------
  */
-func (api *TudoNodeApi) GetUserAccount(ownerUuid string) map[string]interface{} {
+func (api *TudoNodeAPI) GetUserAccount(ownerUuid string) map[string]interface{} {
 	out := make(map[string]interface{})
-
+	owner := uuid.Parse(ownerUuid)
+	if owner == nil {
+		out["error"] = fmt.Sprintf("Invalid owner uuid %s", ownerUuid)
+		return out
+	}
+	ks := api.node.kstore.GetStorageIf()
+	results, err := ks.GetUserAccount(owner)
+	if err != nil {
+		out["error"] = err.Error()
+	} else {
+		out["account"] = results
+	}
 	return out
 }
 
@@ -84,9 +122,20 @@ func (api *TudoNodeApi) GetUserAccount(ownerUuid string) map[string]interface{} 
  * GetWallet
  * ---------
  */
-func (api *TudoNodeApi) GetWallet(walletUuid string) map[string]interface{} {
+func (api *TudoNodeAPI) GetWallet(walletUuid string) map[string]interface{} {
 	out := make(map[string]interface{})
-
+	wallet := uuid.Parse(walletUuid)
+	if wallet == nil {
+		out["error"] = fmt.Sprintf("Invalid wallet uuid %s", walletUuid)
+		return out
+	}
+	ks := api.node.kstore.GetStorageIf()
+	results, err := ks.GetWallet(wallet)
+	if err != nil {
+		out["error"] = err.Error()
+	} else {
+		out["account"] = results
+	}
 	return out
 }
 
@@ -95,9 +144,20 @@ func (api *TudoNodeApi) GetWallet(walletUuid string) map[string]interface{} {
  * -------------
  */
 func (api *TudoNodeAPI) ListUserTrans(userUuid string,
-	start, end int) map[string]interface{} {
+	from bool, start, limit int) map[string]interface{} {
 	out := make(map[string]interface{})
-
+	user := uuid.Parse(userUuid)
+	if user == nil {
+		out["error"] = fmt.Sprintf("Invalid user uuid %s", userUuid)
+		return out
+	}
+	ks := api.node.kstore.GetStorageIf()
+	results, err := ks.GetTransaction(nil, &user, from, start, limit)
+	if err != nil {
+		out["error"] = err.Error()
+	} else {
+		out["transaction"] = results
+	}
 	return out
 }
 
@@ -105,9 +165,45 @@ func (api *TudoNodeAPI) ListUserTrans(userUuid string,
  * ListAccountTrans
  * ----------------
  */
-func (api *TudoNodeAPI) ListAccountTrans(account string,
-	start, end int) map[string]interface{} {
+func (api *TudoNodeAPI) ListAccountTrans(address string,
+	from bool, start, limit int) map[string]interface{} {
 	out := make(map[string]interface{})
+	if !common.IsHexAddress(address) {
+		out["error"] = fmt.Sprintf("Invaid address %s", address)
+		return out
+	}
+	ks := api.node.kstore.GetStorageIf()
+	acct := common.HexToAddress(address)
+	results, err := ks.GetTransaction(&acct, nil, from, start, limit)
 
+	if err != nil {
+		out["error"] = err.Error()
+	} else {
+		out["transaction"] = results
+	}
+	return out
+}
+
+/**
+ * ListUserAcctTrans
+ * -----------------
+ */
+func (api *TudoNodeAPI) ListUserAcctTrans(address, userUuid string,
+	from bool, start, limit int) map[string]interface{} {
+	out := make(map[string]interface{})
+	if !common.IsHexAddress(address) {
+		out["error"] = fmt.Sprintf("Invaid address %s", address)
+		return out
+	}
+	ks := api.node.kstore.GetStorageIf()
+	owner := uuid.Parse(userUuid)
+	acct := common.HexToAddress(address)
+	results, err := ks.GetTransaction(&acct, &owner, from, start, limit)
+
+	if err != nil {
+		out["error"] = err.Error()
+	} else {
+		out["transaction"] = results
+	}
 	return out
 }

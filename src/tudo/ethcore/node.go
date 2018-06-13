@@ -16,7 +16,6 @@ import (
 
 type TudoNode struct {
 	*node.Node
-	// kstore keystore.KeyStore
 	kstore kstore.KStoreIface
 }
 

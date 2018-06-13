@@ -19,30 +19,43 @@ import (
 	"tudo/models"
 )
 
+/**
+ * KeyStore Storage specific interface
+ */
 type KsInterface interface {
 	keystore.KeyStoreIf
 
 	GetOrm() orm.Ormer
+	SetKeyStoreRef(kstore *KStore)
+
 	GetAccount(addr common.Address) ([]models.Account, error)
 	GetUserAccount(ownerUuid uuid.UUID) ([]models.Account, error)
 	GetWallet(walletUuid uuid.UUID) ([]models.Account, error)
-	GetTransaction(addr *common.Address,
-		owner *uuid.UUID, from bool) ([]models.Transaction, error)
+	GetTransaction(addr *common.Address, owner *uuid.UUID,
+		from bool, offset, limit int) ([]models.Transaction, error)
 	GetKeyUuid(addr common.Address, owner uuid.UUID, auth string) (*keystore.Key, error)
 
 	StoreAccount(k *keystore.Key, name, passwd string,
 		ownerUuid *uuid.UUID, walletUuid *uuid.UUID) (*models.Account, error)
 	StoreKeyUuid(k *keystore.Key, owner uuid.UUID, auth string) error
-	UpdateAccount(addr common.Address, name, passkey string, walletUuid uuid.UUID) error
+	UpdateAccount(addr common.Address, name, passkey string,
+		ownerUuid uuid.UUID, walletUuid uuid.UUID) error
 }
 
+/**
+ * Main KeyStore interface
+ */
 type KStoreIface interface {
 	keystore.KeyStore
 
+	GetStorageIf() KsInterface
 	NewAccountOwner(ownerUuid, walletUuid,
 		name, passphrase string) (*accounts.Account, *models.Account, error)
 }
 
+/**
+ * SQL based keystore object.
+ */
 type KStore struct {
 	Storage     KsInterface
 	changes     chan struct{}
@@ -75,6 +88,7 @@ type Wallet struct {
 type BaseKeyStore struct {
 	scryptN    int
 	scryptP    int
+	kstore     *KStore
 	ormHandler orm.Ormer
 }
 
