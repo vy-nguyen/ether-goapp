@@ -622,3 +622,7 @@ func (n *Node) GetApis() []rpc.API {
 func (n *Node) SetAccountManager(accman accounts.Manager) {
 	n.accman = accman
 }
+
+func (n *Node) GetService(kind reflect.Type) Service {
+	return n.services[kind]
+}

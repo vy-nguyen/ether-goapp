@@ -6,11 +6,11 @@ import (
 	_ "tudo/models"
 	_ "tudo/routers"
 
-	"github.com/astaxie/beego"
+	// "github.com/astaxie/beego"
 	"tudo/ether"
 )
 
 func main() {
-	go ether.GethMain()
-	beego.Run()
+	ether.GethMain()
+	// beego.Run()
 }

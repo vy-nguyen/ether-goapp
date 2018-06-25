@@ -8,6 +8,7 @@
 package ethcore
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -205,5 +206,29 @@ func (api *TudoNodeAPI) ListUserAcctTrans(address, userUuid string,
 	} else {
 		out["transaction"] = results
 	}
+	return out
+}
+
+/**
+ * ListAccountInfo
+ * ---------------
+ */
+func (api *TudoNodeAPI) ListAccountInfo(ctx context.Context,
+	args []string) map[string]interface{} {
+	out := make(map[string]interface{})
+	eth := api.node.GetEthereum().ApiBackend
+	state, _, err := eth.StateAndHeaderByNumber(ctx, -1)
+
+	results := make([]*AccountInfo, len(args))
+	for idx, addr := range args {
+		acct := common.HexToAddress(addr)
+		balance := state.GetBalance(acct)
+		results[idx] = &AccountInfo{
+			Account: addr,
+			Balance: *balance,
+		}
+	}
+	out["error"] = err
+	out["accounts"] = results
 	return out
 }

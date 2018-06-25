@@ -3,10 +3,9 @@ package controllers
 import (
 	"fmt"
 	"net/http"
-
-	"github.com/astaxie/beego"
-	"github.com/gorilla/rpc/v2"
-	"github.com/gorilla/rpc/v2/json"
+	// "github.com/astaxie/beego"
+	// "github.com/gorilla/rpc/v2"
+	// "github.com/gorilla/rpc/v2/json"
 )
 
 type KeyArgs struct {
@@ -27,11 +26,13 @@ func (t *KeyStore) SaveKey(r *http.Request, arg *KeyArgs, reply *KeyReply) error
 }
 
 func init() {
-	fmt.Printf("Init jsonrpc...\n")
-	srv := rpc.NewServer()
-	srv.RegisterCodec(json.NewCodec(), "application/json")
-	srv.RegisterCodec(json.NewCodec(), "application/json;charset=UTF-8")
+	/*
+		fmt.Printf("Init jsonrpc...\n")
+		srv := rpc.NewServer()
+		srv.RegisterCodec(json.NewCodec(), "application/json")
+		srv.RegisterCodec(json.NewCodec(), "application/json;charset=UTF-8")
 
-	srv.RegisterService(new(KeyStore), "")
-	beego.Handler("/rpc", srv)
+		srv.RegisterService(new(KeyStore), "")
+		beego.Handler("/rpc", srv)
+	*/
 }

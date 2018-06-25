@@ -9,6 +9,9 @@
 package ethcore
 
 import (
+	"reflect"
+
+	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/rpc"
 	"tudo/kstore"
@@ -45,4 +48,9 @@ func (n *TudoNode) GetApis() []rpc.API {
 		Public:    true,
 	})
 	return apis
+}
+
+func (n *TudoNode) GetEthereum() *eth.Ethereum {
+	e := n.GetService(reflect.TypeOf((*eth.Ethereum)(nil)))
+	return e.(*eth.Ethereum)
 }
