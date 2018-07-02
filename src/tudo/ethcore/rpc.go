@@ -10,8 +10,10 @@ package ethcore
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pborman/uuid"
 )
 
@@ -144,10 +146,12 @@ func (api *TudoNodeAPI) GetWallet(walletUuid string) map[string]interface{} {
  * ListUserTrans
  * -------------
  */
-func (api *TudoNodeAPI) ListUserTrans(userUuid string,
-	from bool, start, limit int) map[string]interface{} {
+func (api *TudoNodeAPI) ListUserTrans(userUuid,
+	fromArg, startArg, limitArg string) map[string]interface{} {
+	from, start, limit := parseFromStartLimitArg(fromArg, startArg, limitArg)
 	out := make(map[string]interface{})
 	user := uuid.Parse(userUuid)
+
 	if user == nil {
 		out["error"] = fmt.Sprintf("Invalid user uuid %s", userUuid)
 		return out
@@ -167,7 +171,8 @@ func (api *TudoNodeAPI) ListUserTrans(userUuid string,
  * ----------------
  */
 func (api *TudoNodeAPI) ListAccountTrans(address string,
-	from bool, start, limit int) map[string]interface{} {
+	fromArg, startArg, limitArg string) map[string]interface{} {
+	from, start, limit := parseFromStartLimitArg(fromArg, startArg, limitArg)
 	out := make(map[string]interface{})
 	if !common.IsHexAddress(address) {
 		out["error"] = fmt.Sprintf("Invaid address %s", address)
@@ -185,13 +190,31 @@ func (api *TudoNodeAPI) ListAccountTrans(address string,
 	return out
 }
 
+func parseFromStartLimitArg(fromArg, startArg, limitArg string) (bool, int, int) {
+	from, err := strconv.ParseBool(fromArg)
+	if err != nil {
+		from = true
+	}
+	start, err := strconv.ParseInt(startArg, 10, 32)
+	if err != nil {
+		start = 0
+	}
+	limit, err := strconv.ParseInt(limitArg, 10, 32)
+	if err != nil {
+		limit = 1000
+	}
+	return from, int(start), int(limit)
+}
+
 /**
  * ListUserAcctTrans
  * -----------------
  */
-func (api *TudoNodeAPI) ListUserAcctTrans(address, userUuid string,
-	from bool, start, limit int) map[string]interface{} {
+func (api *TudoNodeAPI) ListUserAcctTrans(address, userUuid,
+	fromArg, startArg, limitArg string) map[string]interface{} {
+	from, start, limit := parseFromStartLimitArg(fromArg, startArg, limitArg)
 	out := make(map[string]interface{})
+
 	if !common.IsHexAddress(address) {
 		out["error"] = fmt.Sprintf("Invaid address %s", address)
 		return out
@@ -215,9 +238,20 @@ func (api *TudoNodeAPI) ListUserAcctTrans(address, userUuid string,
  */
 func (api *TudoNodeAPI) ListAccountInfo(ctx context.Context,
 	args []string) map[string]interface{} {
+	return listAccoutInternal(api, ctx, false, args)
+}
+
+func (api *TudoNodeAPI) ListAccountInfoAndBlock(ctx context.Context,
+	args []string) map[string]interface{} {
+	return listAccoutInternal(api, ctx, true, args)
+}
+
+func listAccoutInternal(api *TudoNodeAPI, ctx context.Context, latest bool,
+	args []string) map[string]interface{} {
 	out := make(map[string]interface{})
-	eth := api.node.GetEthereum().ApiBackend
-	state, _, err := eth.StateAndHeaderByNumber(ctx, -1)
+	eth := api.node.GetEthereum()
+	ethApi := eth.ApiBackend
+	state, _, err := ethApi.StateAndHeaderByNumber(ctx, -1)
 
 	results := make([]*AccountInfo, len(args))
 	for idx, addr := range args {
@@ -228,7 +262,55 @@ func (api *TudoNodeAPI) ListAccountInfo(ctx context.Context,
 			Balance: *balance,
 		}
 	}
-	out["error"] = err
+	if latest == true {
+		bcApi := eth.BcPublicApi
+		out["latest"], err = bcApi.GetBlockByNumber(ctx, -1, true)
+	} else {
+		out["latest"] = nil
+	}
 	out["accounts"] = results
+	out["error"] = err
+	return out
+}
+
+/**
+ * ListBlocks
+ * ----------
+ */
+func (api *TudoNodeAPI) ListBlocks(ctx context.Context,
+	start, cnt, txDetail string) map[string]interface{} {
+	startBlk, err := strconv.ParseInt(start, 10, 64)
+	if err != nil {
+		startBlk = -1
+	}
+	count, err := strconv.ParseInt(cnt, 10, 32)
+	if err != nil {
+		count = 100
+	}
+	detail, err := strconv.ParseBool(txDetail)
+	if err != nil {
+		detail = false
+	}
+	if count <= 0 || count > 100 {
+		count = 100
+	}
+	out := make(map[string]interface{})
+	result := make([]map[string]interface{}, count)
+
+	eth := api.node.GetEthereum()
+	bcApi := eth.BcPublicApi
+
+	block, err := bcApi.GetBlockByNumber(ctx, rpc.BlockNumber(startBlk), detail)
+	if block != nil {
+		count--
+		result[count] = block
+		for count--; count >= 0; count-- {
+			startBlk--
+			block, err = bcApi.GetBlockByNumber(ctx, rpc.BlockNumber(startBlk), detail)
+			result[count] = block
+		}
+	}
+	out["blocks"] = result
+	out["error"] = err
 	return out
 }

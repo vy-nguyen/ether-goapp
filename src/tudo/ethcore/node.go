@@ -19,7 +19,9 @@ import (
 
 type TudoNode struct {
 	*node.Node
-	kstore kstore.KStoreIface
+	ether    *eth.Ethereum
+	bcEthApi *eth.EthApiBackend
+	kstore   kstore.KStoreIface
 }
 
 func NewTudoNode(conf *node.Config) (*node.Node, error) {
@@ -27,7 +29,7 @@ func NewTudoNode(conf *node.Config) (*node.Node, error) {
 	if err != nil {
 		return nil, nil
 	}
-	tudo := &TudoNode{n, nil}
+	tudo := &TudoNode{n, nil, nil, nil}
 	tudo.NodeIf = tudo
 
 	accman, ksIface, err := makeAccountManager(conf)
@@ -51,6 +53,10 @@ func (n *TudoNode) GetApis() []rpc.API {
 }
 
 func (n *TudoNode) GetEthereum() *eth.Ethereum {
-	e := n.GetService(reflect.TypeOf((*eth.Ethereum)(nil)))
-	return e.(*eth.Ethereum)
+	if n.ether == nil {
+		e := n.GetService(reflect.TypeOf((*eth.Ethereum)(nil)))
+		n.ether = e.(*eth.Ethereum)
+		n.bcEthApi = n.ether.ApiBackend
+	}
+	return n.ether
 }
