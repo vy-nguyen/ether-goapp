@@ -314,3 +314,26 @@ func (api *TudoNodeAPI) ListBlocks(ctx context.Context,
 	out["error"] = err
 	return out
 }
+
+/**
+ * DumpAccounts
+ * ------------
+ */
+func (api *TudoNodeAPI) DumpAccounts(ctx context.Context) map[string]interface{} {
+	out := make(map[string]interface{})
+
+	eth := api.node.GetEthereum()
+	bc := eth.BlockChain()
+	latest := bc.CurrentBlock()
+
+	if latest == nil {
+		fmt.Printf("No block!")
+		return out
+	}
+	stateDb, err := bc.StateAt(latest.Root())
+	accounts := stateDb.RawDump()
+
+	out["accounts"] = accounts.Accounts
+	out["error"] = err
+	return out
+}
