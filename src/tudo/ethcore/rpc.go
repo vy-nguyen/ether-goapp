@@ -33,7 +33,7 @@ func NewTudoNodeAPI(n *TudoNode) *TudoNodeAPI {
  *    localhost:8545
  */
 func (api *TudoNodeAPI) UpdateAccount(address, name,
-	password, ownerUuid, walletUuid string) map[string]interface{} {
+	password, actType, ownerUuid, walletUuid string) map[string]interface{} {
 	ks := api.node.kstore.GetStorageIf()
 
 	out := make(map[string]interface{})
@@ -48,7 +48,7 @@ func (api *TudoNodeAPI) UpdateAccount(address, name,
 	if owner == nil {
 		out["error"] = fmt.Sprintf("Invalid owner uuid %s", ownerUuid)
 	}
-	err := ks.UpdateAccount(addr, name, password, owner, wallet)
+	err := ks.UpdateAccount(addr, name, actType, owner, wallet)
 	if err != nil {
 		out["error"] = err.Error()
 	}
@@ -62,11 +62,12 @@ func (api *TudoNodeAPI) UpdateAccount(address, name,
  * ----------
  */
 func (api *TudoNodeAPI) NewAccount(ownerUuid, walletUuid,
-	name, password string) map[string]interface{} {
+	name, password, actType string) map[string]interface{} {
 	out := make(map[string]interface{})
 
 	kstore := api.node.kstore
-	acct, model, err := kstore.NewAccountOwner(ownerUuid, walletUuid, name, password)
+	acct, model, err := kstore.NewAccountOwner(ownerUuid,
+		walletUuid, name, password, actType)
 	if err != nil {
 		out["error"] = err.Error()
 		out["ownerUuid"] = ownerUuid
@@ -335,5 +336,35 @@ func (api *TudoNodeAPI) DumpAccounts(ctx context.Context) map[string]interface{}
 
 	out["accounts"] = accounts.Accounts
 	out["error"] = err
+	return out
+}
+
+func (api *TudoNodeAPI) DumpTrans(ctx context.Context) map[string]interface{} {
+	out := make(map[string]interface{})
+
+	eth := api.node.GetEthereum()
+	bc := eth.BlockChain()
+	latest := bc.CurrentBlock()
+
+	if latest == nil {
+		fmt.Printf("No block!")
+		return out
+	}
+	orm := api.node.GetOrm()
+	currNo := latest.Number().Uint64()
+	for i := uint64(0); i <= currNo; i++ {
+		block := bc.GetBlockByNumber(i)
+		if block == nil {
+			fmt.Printf("Failed to fetch block %d\n", i)
+			continue
+		}
+		txs := block.Transactions()
+		if len(txs) == 0 {
+			continue
+		}
+		for _, tx := range txs {
+			LogTransaction(tx, orm)
+		}
+	}
 	return out
 }

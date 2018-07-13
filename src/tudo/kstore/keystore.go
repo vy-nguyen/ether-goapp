@@ -398,12 +398,12 @@ func (ks *KStore) NewAccount(passphrase string) (accounts.Account, error) {
 	if err != nil {
 		return accounts.Account{}, err
 	}
-	_, err = ks.Storage.StoreAccount(key, "", passphrase, nil, nil)
+	_, err = ks.Storage.StoreAccount(key, "annon", "normal", nil, nil)
 	return account, err
 }
 
 func (ks *KStore) NewAccountOwner(ownerUuid, walletUuid,
-	name, passphrase string) (*accounts.Account, *models.Account, error) {
+	name, passphrase, actType string) (*accounts.Account, *models.Account, error) {
 	owner := uuid.Parse(ownerUuid)
 	if owner == nil {
 		owner = uuid.NewRandom()
@@ -417,7 +417,7 @@ func (ks *KStore) NewAccountOwner(ownerUuid, walletUuid,
 	if err != nil {
 		return nil, nil, err
 	}
-	model, err := ks.Storage.StoreAccount(key, name, passphrase, &owner, &wallet)
+	model, err := ks.Storage.StoreAccount(key, name, actType, &owner, &wallet)
 	return &account, model, err
 }
 
@@ -712,13 +712,21 @@ func (ks *SqlKeyStore) getTransQuery(sql string) ([]models.Transaction, error) {
  * -------------
  */
 func (ks *SqlKeyStore) UpdateAccount(addr common.Address,
-	name, passkey string, ownerUuid, walletUuid uuid.UUID) error {
+	name, actType string, ownerUuid, walletUuid uuid.UUID) error {
 	sql := fmt.Sprintf(
 		"SELECT * from account WHERE account=\"%s\" and owner_uuid=\"%s\"",
 		addr.Hex(), ownerUuid.String())
 
 	results, err := ks.getAccountQuery(sql)
 	if err != nil {
+		acctRec := &models.Account{
+			OwnerUuid:  ownerUuid.String(),
+			WalletUuid: walletUuid.String(),
+			PublicName: name,
+			Account:    addr.Hex(),
+			Type:       actType,
+		}
+		_, err := ks.GetOrm().Insert(acctRec)
 		return err
 	}
 	obj := &results[0]
@@ -726,7 +734,7 @@ func (ks *SqlKeyStore) UpdateAccount(addr common.Address,
 		obj.WalletUuid = walletUuid.String()
 	}
 	obj.PublicName = name
-	obj.PassKey = passkey
+	obj.Type = actType
 
 	_, err = ks.ormHandler.Update(obj)
 	return err
@@ -755,7 +763,7 @@ func (ks *SqlKeyStore) GetKeyUuid(addr common.Address,
  * StoreAccountKey
  * ---------------
  */
-func (ks *SqlKeyStore) StoreAccount(key *keystore.Key, name, passphrase string,
+func (ks *SqlKeyStore) StoreAccount(key *keystore.Key, name, actType string,
 	ownerUuid *uuid.UUID, walletUuid *uuid.UUID) (*models.Account, error) {
 	if walletUuid == nil {
 		uid := uuid.NewRandom()
@@ -773,7 +781,7 @@ func (ks *SqlKeyStore) StoreAccount(key *keystore.Key, name, passphrase string,
 		WalletUuid: walletUuid.String(),
 		PublicName: name,
 		Account:    key.Address.Hex(),
-		PassKey:    passphrase,
+		Type:       actType,
 	}
 	_, err := orm.Insert(acctRec)
 	return acctRec, err

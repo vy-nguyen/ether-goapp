@@ -11,6 +11,7 @@ package ethcore
 import (
 	"reflect"
 
+	"github.com/astaxie/beego/orm"
 	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -59,4 +60,8 @@ func (n *TudoNode) GetEthereum() *eth.Ethereum {
 		n.bcEthApi = n.ether.ApiBackend
 	}
 	return n.ether
+}
+
+func (n *TudoNode) GetOrm() orm.Ormer {
+	return n.kstore.GetStorageIf().GetOrm()
 }

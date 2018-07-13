@@ -38,7 +38,7 @@ type KsInterface interface {
 	StoreAccount(k *keystore.Key, name, passwd string,
 		ownerUuid *uuid.UUID, walletUuid *uuid.UUID) (*models.Account, error)
 	StoreKeyUuid(k *keystore.Key, owner uuid.UUID, auth string) error
-	UpdateAccount(addr common.Address, name, passkey string,
+	UpdateAccount(addr common.Address, name, actType string,
 		ownerUuid uuid.UUID, walletUuid uuid.UUID) error
 }
 
@@ -50,7 +50,7 @@ type KStoreIface interface {
 
 	GetStorageIf() KsInterface
 	NewAccountOwner(ownerUuid, walletUuid,
-		name, passphrase string) (*accounts.Account, *models.Account, error)
+		name, passphrase, actType string) (*accounts.Account, *models.Account, error)
 }
 
 /**
