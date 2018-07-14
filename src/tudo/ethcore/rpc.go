@@ -326,7 +326,8 @@ func (api *TudoNodeAPI) ListBlocks(ctx context.Context,
  */
 func (api *TudoNodeAPI) ListBlockHash(ctx context.Context,
 	hashes []string) map[string]interface{} {
-	out := make(map[string]interface{})
+	var res []interface{}
+
 	eth := api.node.GetEthereum()
 	bcApi := eth.BcPublicApi
 
@@ -334,9 +335,11 @@ func (api *TudoNodeAPI) ListBlockHash(ctx context.Context,
 		hash := common.HexToHash(s)
 		block, _ := bcApi.GetBlockByHash(ctx, hash, true)
 		if block != nil {
-			out[s] = block
+			res = append(res, block)
 		}
 	}
+	out := make(map[string]interface{})
+	out["blocks"] = res
 	return out
 }
 
@@ -346,7 +349,8 @@ func (api *TudoNodeAPI) ListBlockHash(ctx context.Context,
  */
 func (api *TudoNodeAPI) ListTrans(ctx context.Context,
 	trans []string) map[string]interface{} {
-	out := make(map[string]interface{})
+	var res []interface{}
+
 	eth := api.node.GetEthereum()
 	bcDb := eth.ChainDb()
 
@@ -354,9 +358,11 @@ func (api *TudoNodeAPI) ListTrans(ctx context.Context,
 		hash := common.HexToHash(s)
 		tx, blockHash, blockNo, index := core.GetTransaction(bcDb, hash)
 		if tx != nil {
-			out[s] = newRPCTransaction(tx, blockHash, blockNo, index)
+			res = append(res, newRPCTransaction(tx, blockHash, blockNo, index))
 		}
 	}
+	out := make(map[string]interface{})
+	out["trans"] = res
 	return out
 }
 
