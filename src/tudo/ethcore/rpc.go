@@ -10,9 +10,13 @@ package ethcore
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pborman/uuid"
 )
@@ -317,6 +321,75 @@ func (api *TudoNodeAPI) ListBlocks(ctx context.Context,
 }
 
 /**
+ * ListBlockHash
+ * -------------
+ */
+func (api *TudoNodeAPI) ListBlockHash(ctx context.Context,
+	hashes []string) map[string]interface{} {
+	out := make(map[string]interface{})
+	eth := api.node.GetEthereum()
+	bcApi := eth.BcPublicApi
+
+	for _, s := range hashes {
+		hash := common.HexToHash(s)
+		block, _ := bcApi.GetBlockByHash(ctx, hash, true)
+		if block != nil {
+			out[s] = block
+		}
+	}
+	return out
+}
+
+/**
+ * ListTrans
+ * ---------
+ */
+func (api *TudoNodeAPI) ListTrans(ctx context.Context,
+	trans []string) map[string]interface{} {
+	out := make(map[string]interface{})
+	eth := api.node.GetEthereum()
+	bcDb := eth.ChainDb()
+
+	for _, s := range trans {
+		hash := common.HexToHash(s)
+		tx, blockHash, blockNo, index := core.GetTransaction(bcDb, hash)
+		if tx != nil {
+			out[s] = newRPCTransaction(tx, blockHash, blockNo, index)
+		}
+	}
+	return out
+}
+
+func newRPCTransaction(tx *types.Transaction, blockHash common.Hash,
+	blockNumber uint64, index uint64) *RPCTransaction {
+	var signer types.Signer = types.FrontierSigner{}
+	if tx.Protected() {
+		signer = types.NewEIP155Signer(tx.ChainId())
+	}
+	from, _ := types.Sender(signer, tx)
+	v, r, s := tx.RawSignatureValues()
+
+	result := &RPCTransaction{
+		From:     from,
+		Gas:      hexutil.Uint64(tx.Gas()),
+		GasPrice: (*hexutil.Big)(tx.GasPrice()),
+		Hash:     tx.Hash(),
+		Input:    hexutil.Bytes(tx.Data()),
+		Nonce:    hexutil.Uint64(tx.Nonce()),
+		To:       tx.To(),
+		Value:    (*hexutil.Big)(tx.Value()), V: (*hexutil.Big)(v),
+		R: (*hexutil.Big)(r),
+		S: (*hexutil.Big)(s),
+	}
+	if blockHash != (common.Hash{}) {
+		result.BlockHash = blockHash
+		result.BlockNumber = (*hexutil.Big)(new(big.Int).SetUint64(blockNumber))
+		result.TransactionIndex = hexutil.Uint(index)
+	}
+	return result
+}
+
+/**
  * DumpAccounts
  * ------------
  */
@@ -339,6 +412,10 @@ func (api *TudoNodeAPI) DumpAccounts(ctx context.Context) map[string]interface{}
 	return out
 }
 
+/**
+ * DumpTrans
+ * ---------
+ */
 func (api *TudoNodeAPI) DumpTrans(ctx context.Context) map[string]interface{} {
 	out := make(map[string]interface{})
 
