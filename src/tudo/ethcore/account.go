@@ -15,7 +15,8 @@ import (
 	"github.com/ethereum/go-ethereum/node"
 )
 
-func makeAccountManager(conf *node.Config) (AmInterface, kstore.KStoreIface, error) {
+func makeAccountManager(conf *node.Config,
+	tdcfg *TudoConfig) (AmInterface, kstore.KStoreIface, error) {
 	scryptN, scryptP, keydir, err := conf.AccountConfig()
 
 	if keydir == "" {
@@ -28,5 +29,5 @@ func makeAccountManager(conf *node.Config) (AmInterface, kstore.KStoreIface, err
 	ksArray := []keystore.KeyStore{
 		ksIface,
 	}
-	return NewManager(ksArray...), ksIface, nil
+	return NewManager(tdcfg, ksArray...), ksIface, nil
 }

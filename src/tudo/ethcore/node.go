@@ -25,7 +25,12 @@ type TudoNode struct {
 	kstore   kstore.KStoreIface
 }
 
-func NewTudoNode(conf *node.Config) (*node.Node, error) {
+type TudoConfig struct {
+	AdminAccounts []string
+	PeerCfgFile   string
+}
+
+func NewTudoNode(conf *node.Config, tdcfg *TudoConfig) (*node.Node, error) {
 	n, err := node.New(conf)
 	if err != nil {
 		return nil, nil
@@ -33,7 +38,7 @@ func NewTudoNode(conf *node.Config) (*node.Node, error) {
 	tudo := &TudoNode{n, nil, nil, nil}
 	tudo.NodeIf = tudo
 
-	accman, ksIface, err := makeAccountManager(conf)
+	accman, ksIface, err := makeAccountManager(conf, tdcfg)
 	if err != nil {
 		return tudo.Node, nil
 	}

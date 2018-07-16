@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"reflect"
 	"unicode"
 
@@ -32,6 +33,7 @@ import (
 	"github.com/ethereum/go-ethereum/dashboard"
 	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/node"
+	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/params"
 	whisper "github.com/ethereum/go-ethereum/whisper/whisperv6"
 	"github.com/naoina/toml"
@@ -76,11 +78,15 @@ type ethstatsConfig struct {
 }
 
 type gethConfig struct {
-	Eth       eth.Config
-	Shh       whisper.Config
-	Node      node.Config
-	Ethstats  ethstatsConfig
-	Dashboard dashboard.Config
+	Eth        eth.Config
+	Shh        whisper.Config
+	Node       node.Config
+	Ethstats   ethstatsConfig
+	Dashboard  dashboard.Config
+	TudoConfig ethcore.TudoConfig
+}
+
+func mergeP2PConfig(me, peer *p2p.Config) {
 }
 
 func loadConfig(file string, cfg *gethConfig) error {
@@ -92,6 +98,28 @@ func loadConfig(file string, cfg *gethConfig) error {
 
 	err = tomlSettings.NewDecoder(bufio.NewReader(f)).Decode(cfg)
 	// Add file name to errors that have a line number.
+	if _, ok := err.(*toml.LineError); ok {
+		err = errors.New(file + ", " + err.Error())
+	}
+	if err == nil {
+		peerCfg := filepath.Join(filepath.Dir(file), cfg.TudoConfig.PeerCfgFile)
+		peer := p2p.Config{}
+		err = loadPeerConfig(peerCfg, &peer)
+		if err == nil {
+			mergeP2PConfig(&cfg.Node.P2P, &peer)
+		}
+	}
+	return err
+}
+
+func loadPeerConfig(file string, peer *p2p.Config) error {
+	f, err := os.Open(file)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	err = tomlSettings.NewDecoder(bufio.NewReader(f)).Decode(peer)
 	if _, ok := err.(*toml.LineError); ok {
 		err = errors.New(file + ", " + err.Error())
 	}
@@ -126,7 +154,7 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, gethConfig) {
 
 	// Apply flags.
 	utils.SetNodeConfig(ctx, &cfg.Node)
-	stack, err := ethcore.NewTudoNode(&cfg.Node)
+	stack, err := ethcore.NewTudoNode(&cfg.Node, &cfg.TudoConfig)
 	if err != nil {
 		utils.Fatalf("Failed to create the protocol stack: %v", err)
 	}

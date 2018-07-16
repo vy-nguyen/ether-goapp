@@ -15,6 +15,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/event"
 )
 
@@ -32,10 +33,11 @@ type Manager struct {
 	wallets  []accounts.Wallet
 	feed     event.Feed
 	quit     chan chan error
+	admin    map[common.Address]string
 	lock     sync.RWMutex
 }
 
-func NewManager(kstore ...keystore.KeyStore) AmInterface {
+func NewManager(config *TudoConfig, kstore ...keystore.KeyStore) AmInterface {
 	wallets := []accounts.Wallet{}
 	updates := make(chan accounts.WalletEvent, 4*len(kstore))
 	subs := make([]event.Subscription, len(kstore))
@@ -53,9 +55,20 @@ func NewManager(kstore ...keystore.KeyStore) AmInterface {
 		wallets:  wallets,
 		quit:     make(chan chan error),
 		kstore:   ksmap,
+		admin:    make(map[common.Address]string),
+	}
+	for _, s := range config.AdminAccounts {
+		am.admin[common.HexToAddress(s)] = s
 	}
 	go am.update()
 	return am
+}
+
+func (am *Manager) IsAdminAcct(addr common.Address) bool {
+	if _, ok := am.admin[addr]; ok {
+		return true
+	}
+	return false
 }
 
 func (am *Manager) Close() error {
