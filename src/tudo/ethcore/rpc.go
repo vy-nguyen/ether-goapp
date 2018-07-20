@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pborman/uuid"
+	"tudo/models"
 )
 
 type TudoNodeAPI struct {
@@ -150,9 +151,14 @@ func (api *TudoNodeAPI) GetWallet(walletUuid string) map[string]interface{} {
 /**
  * ListUserTrans
  * -------------
+ * @param userUuid - uuid recorded in mysql
+ * @param fromArg - true to find transactions sent *from* userUuid, false is for tx
+ *     received by userUuid.
+ * @param startArg, limitArg - start + limit entries read from mysql.
  */
-func (api *TudoNodeAPI) ListUserTrans(userUuid,
-	fromArg, startArg, limitArg string) map[string]interface{} {
+func (api *TudoNodeAPI) ListUserTrans(ctx context.Context,
+	userUuid, fromArg, startArg, limitArg string) map[string]interface{} {
+
 	from, start, limit := parseFromStartLimitArg(fromArg, startArg, limitArg)
 	out := make(map[string]interface{})
 	user := uuid.Parse(userUuid)
@@ -165,17 +171,40 @@ func (api *TudoNodeAPI) ListUserTrans(userUuid,
 	results, err := ks.GetTransaction(nil, &user, from, start, limit)
 	if err != nil {
 		out["error"] = err.Error()
-	} else {
-		out["transaction"] = results
+		return out
 	}
+	api.getDetailTx(ctx, out, results)
 	return out
+}
+
+func (api *TudoNodeAPI) getDetailTx(ctx context.Context,
+	out map[string]interface{}, results []models.Transaction) {
+	txDetail := make([]*RPCTransaction, len(results))
+	txBlocks := make([]map[string]interface{}, len(results))
+
+	eth := api.node.GetEthereum()
+	bcDb := eth.ChainDb()
+	bcApi := eth.BcPublicApi
+
+	for i, t := range results {
+		hash := common.HexToHash(t.TxHash)
+		tx, blockHash, blockNo, index := core.GetTransaction(bcDb, hash)
+		if tx != nil {
+			txDetail[i] = newRPCTransaction(tx, blockHash, blockNo, index)
+			block, _ := bcApi.GetBlockByHash(ctx, blockHash, false)
+			txBlocks[i] = block
+		}
+	}
+	out["transaction"] = results
+	out["transBChain"] = txDetail
+	out["transBlocks"] = txBlocks
 }
 
 /**
  * ListAccountTrans
  * ----------------
  */
-func (api *TudoNodeAPI) ListAccountTrans(address string,
+func (api *TudoNodeAPI) ListAccountTrans(ctx context.Context, address string,
 	fromArg, startArg, limitArg string) map[string]interface{} {
 	from, start, limit := parseFromStartLimitArg(fromArg, startArg, limitArg)
 	out := make(map[string]interface{})
@@ -191,6 +220,7 @@ func (api *TudoNodeAPI) ListAccountTrans(address string,
 		out["error"] = err.Error()
 	} else {
 		out["transaction"] = results
+		api.getDetailTx(ctx, out, results)
 	}
 	return out
 }
@@ -215,7 +245,7 @@ func parseFromStartLimitArg(fromArg, startArg, limitArg string) (bool, int, int)
  * ListUserAcctTrans
  * -----------------
  */
-func (api *TudoNodeAPI) ListUserAcctTrans(address, userUuid,
+func (api *TudoNodeAPI) ListUserAcctTrans(ctx context.Context, address, userUuid,
 	fromArg, startArg, limitArg string) map[string]interface{} {
 	from, start, limit := parseFromStartLimitArg(fromArg, startArg, limitArg)
 	out := make(map[string]interface{})
@@ -233,6 +263,7 @@ func (api *TudoNodeAPI) ListUserAcctTrans(address, userUuid,
 		out["error"] = err.Error()
 	} else {
 		out["transaction"] = results
+		api.getDetailTx(ctx, out, results)
 	}
 	return out
 }
