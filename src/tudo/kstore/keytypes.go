@@ -32,7 +32,7 @@ type KsInterface interface {
 	GetUserAccount(ownerUuid uuid.UUID) ([]models.Account, error)
 	GetWallet(walletUuid uuid.UUID) ([]models.Account, error)
 	GetTransaction(addr *common.Address, owner *uuid.UUID,
-		from bool, offset, limit int) ([]models.Transaction, error)
+		from *bool, offset, limit int) ([]models.Transaction, error)
 	GetKeyUuid(addr common.Address, owner uuid.UUID, auth string) (*keystore.Key, error)
 
 	StoreAccount(k *keystore.Key, name, passwd string,

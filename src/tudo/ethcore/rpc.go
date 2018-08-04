@@ -177,8 +177,9 @@ func (api *TudoNodeAPI) ListUserTrans(ctx context.Context,
 	return out
 }
 
-func (api *TudoNodeAPI) getDetailTx(ctx context.Context,
-	out map[string]interface{}, results []models.Transaction) {
+func (api *TudoNodeAPI) getDetailTx(ctx context.Context, out map[string]interface{},
+	results []models.Transaction) ([]*RPCTransaction, []map[string]interface{}) {
+
 	txDetail := make([]*RPCTransaction, len(results))
 	txBlocks := make([]map[string]interface{}, len(results))
 
@@ -195,9 +196,12 @@ func (api *TudoNodeAPI) getDetailTx(ctx context.Context,
 			txBlocks[i] = block
 		}
 	}
-	out["transaction"] = results
-	out["transBChain"] = txDetail
-	out["transBlocks"] = txBlocks
+	if out != nil {
+		out["transaction"] = results
+		out["transBChain"] = txDetail
+		out["transBlocks"] = txBlocks
+	}
+	return txDetail, txBlocks
 }
 
 /**
@@ -219,16 +223,19 @@ func (api *TudoNodeAPI) ListAccountTrans(ctx context.Context, address string,
 	if err != nil {
 		out["error"] = err.Error()
 	} else {
-		out["transaction"] = results
 		api.getDetailTx(ctx, out, results)
 	}
 	return out
 }
 
-func parseFromStartLimitArg(fromArg, startArg, limitArg string) (bool, int, int) {
+func parseFromStartLimitArg(fromArg, startArg, limitArg string) (*bool, int, int) {
+	var fptr *bool
 	from, err := strconv.ParseBool(fromArg)
+
 	if err != nil {
-		from = true
+		fptr = nil
+	} else {
+		fptr = &from
 	}
 	start, err := strconv.ParseInt(startArg, 10, 32)
 	if err != nil {
@@ -238,7 +245,7 @@ func parseFromStartLimitArg(fromArg, startArg, limitArg string) (bool, int, int)
 	if err != nil {
 		limit = 1000
 	}
-	return from, int(start), int(limit)
+	return fptr, int(start), int(limit)
 }
 
 /**
@@ -247,6 +254,7 @@ func parseFromStartLimitArg(fromArg, startArg, limitArg string) (bool, int, int)
  */
 func (api *TudoNodeAPI) ListUserAcctTrans(ctx context.Context, address, userUuid,
 	fromArg, startArg, limitArg string) map[string]interface{} {
+
 	from, start, limit := parseFromStartLimitArg(fromArg, startArg, limitArg)
 	out := make(map[string]interface{})
 
@@ -262,10 +270,21 @@ func (api *TudoNodeAPI) ListUserAcctTrans(ctx context.Context, address, userUuid
 	if err != nil {
 		out["error"] = err.Error()
 	} else {
-		out["transaction"] = results
 		api.getDetailTx(ctx, out, results)
 	}
 	return out
+}
+
+func (api *TudoNodeAPI) listAcctTrans(ctx context.Context, address *common.Address,
+	start, limit int, txOut *[]*RPCTransaction, blkOut *[]map[string]interface{}) {
+
+	ks := api.node.kstore.GetStorageIf()
+	results, err := ks.GetTransaction(address, nil, nil, start, limit)
+	if err == nil {
+		txD, blk := api.getDetailTx(ctx, nil, results)
+		*txOut = append(*txOut, txD...)
+		*blkOut = append(*blkOut, blk...)
+	}
 }
 
 /**
@@ -274,17 +293,26 @@ func (api *TudoNodeAPI) ListUserAcctTrans(ctx context.Context, address, userUuid
  */
 func (api *TudoNodeAPI) ListAccountInfo(ctx context.Context,
 	args []string) map[string]interface{} {
-	return listAccoutInternal(api, ctx, false, args)
+	return listAccoutInternal(api, ctx, false, false, args)
 }
 
 func (api *TudoNodeAPI) ListAccountInfoAndBlock(ctx context.Context,
 	args []string) map[string]interface{} {
-	return listAccoutInternal(api, ctx, true, args)
+	return listAccoutInternal(api, ctx, true, false, args)
 }
 
-func listAccoutInternal(api *TudoNodeAPI, ctx context.Context, latest bool,
+func (api *TudoNodeAPI) ListAccountInfoAndTx(ctx context.Context,
 	args []string) map[string]interface{} {
+	return listAccoutInternal(api, ctx, false, true, args)
+}
+
+func listAccoutInternal(api *TudoNodeAPI, ctx context.Context, latest, txs bool,
+	args []string) map[string]interface{} {
+
 	out := make(map[string]interface{})
+	txOut := make([]*RPCTransaction, 0)
+	blkOut := make([]map[string]interface{}, 0)
+
 	eth := api.node.GetEthereum()
 	ethApi := eth.ApiBackend
 	state, _, err := ethApi.StateAndHeaderByNumber(ctx, -1)
@@ -297,12 +325,19 @@ func listAccoutInternal(api *TudoNodeAPI, ctx context.Context, latest bool,
 			Account: addr,
 			Balance: *balance,
 		}
+		if txs == true {
+			api.listAcctTrans(ctx, &acct, 0, 100, &txOut, &blkOut)
+		}
 	}
 	if latest == true {
 		bcApi := eth.BcPublicApi
 		out["latest"], err = bcApi.GetBlockByNumber(ctx, -1, true)
 	} else {
 		out["latest"] = nil
+	}
+	if txs == true {
+		out["transBChain"] = txOut
+		out["transBlocks"] = blkOut
 	}
 	out["accounts"] = results
 	out["error"] = err
@@ -315,6 +350,7 @@ func listAccoutInternal(api *TudoNodeAPI, ctx context.Context, latest bool,
  */
 func (api *TudoNodeAPI) ListBlocks(ctx context.Context,
 	start, cnt, txDetail string) map[string]interface{} {
+
 	startBlk, err := strconv.ParseInt(start, 10, 64)
 	if err != nil {
 		startBlk = -1

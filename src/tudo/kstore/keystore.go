@@ -649,27 +649,38 @@ func (ks *SqlKeyStore) GetWallet(walletUuid uuid.UUID) ([]models.Account, error)
  * --------------
  */
 func (ks *SqlKeyStore) GetTransaction(addr *common.Address, owner *uuid.UUID,
-	from bool, offset, limit int) ([]models.Transaction, error) {
+	from *bool, offset, limit int) ([]models.Transaction, error) {
 	var sql string
 	acct := "from_acct"
 	uuid := "from_uuid"
 
-	if from == false {
-		acct = "to_acct"
-		uuid = "to_uuid"
-	}
-	if addr != nil && owner != nil {
+	if from == nil {
+		hex := addr.Hex()
 		sql = fmt.Sprintf(
-			"SELECT * from transaction where %s=\"%s\" AND %s=\"%s\"",
-			acct, addr.Hex(), uuid, owner.String())
-	} else if addr != nil {
-		sql = fmt.Sprintf("SELECT * from transaction where %s=\"%s\"", acct, addr.Hex())
-	} else if owner != nil {
-		sql = fmt.Sprintf(
-			"SELECT * from transaction where %s=\"%s\"",
-			uuid, owner.String())
+			"SELECT * from transaction where from_acct=\"%s\" OR to_acct=\"%s\" ",
+			hex, hex)
 	} else {
-		return nil, errors.New("Invalid arguments")
+		if *from == false {
+			acct = "to_acct"
+			uuid = "to_uuid"
+		}
+		if addr != nil && owner != nil {
+			sql = fmt.Sprintf(
+				"SELECT * from transaction where %s=\"%s\" AND %s=\"%s\"",
+				acct, addr.Hex(), uuid, owner.String())
+
+		} else if addr != nil {
+			sql = fmt.Sprintf(
+				"SELECT * from transaction where %s=\"%s\"",
+				acct, addr.Hex())
+
+		} else if owner != nil {
+			sql = fmt.Sprintf(
+				"SELECT * from transaction where %s=\"%s\"",
+				uuid, owner.String())
+		} else {
+			return nil, errors.New("Invalid arguments")
+		}
 	}
 	if limit != 0 {
 		sql = fmt.Sprintf("%s LIMIT %d OFFSET %d", sql, limit, offset)
