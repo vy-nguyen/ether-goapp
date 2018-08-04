@@ -666,18 +666,16 @@ func (ks *SqlKeyStore) GetTransaction(addr *common.Address, owner *uuid.UUID,
 		}
 		if addr != nil && owner != nil {
 			sql = fmt.Sprintf(
-				"SELECT * from transaction where %s=\"%s\" AND %s=\"%s\"",
+				"SELECT * from transaction where %s=\"%s\" OR %s=\"%s\"",
 				acct, addr.Hex(), uuid, owner.String())
 
 		} else if addr != nil {
 			sql = fmt.Sprintf(
-				"SELECT * from transaction where %s=\"%s\"",
-				acct, addr.Hex())
+				"SELECT * from transaction where %s=\"%s\"", acct, addr.Hex())
 
 		} else if owner != nil {
 			sql = fmt.Sprintf(
-				"SELECT * from transaction where %s=\"%s\"",
-				uuid, owner.String())
+				"SELECT * from transaction where %s=\"%s\"", uuid, owner.String())
 		} else {
 			return nil, errors.New("Invalid arguments")
 		}
