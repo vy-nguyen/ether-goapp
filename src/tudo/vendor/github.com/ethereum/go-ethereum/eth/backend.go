@@ -82,8 +82,9 @@ type Ethereum struct {
 	bloomRequests chan chan *bloombits.Retrieval // Channel receiving bloom data retrieval requests
 	bloomIndexer  *core.ChainIndexer             // Bloom indexer operating during block imports
 
-	ApiBackend  *EthApiBackend
-	BcPublicApi *ethapi.PublicBlockChainAPI
+	ApiBackend      *EthApiBackend
+	BcPublicApi     *ethapi.PublicBlockChainAPI
+	TxPublicPoolApi *ethapi.PublicTransactionPoolAPI
 
 	miner     *miner.Miner
 	gasPrice  *big.Int
@@ -174,6 +175,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 
 	eth.ApiBackend = &EthApiBackend{eth, nil}
 	eth.BcPublicApi = ethapi.NewPublicBlockChainAPI(eth.ApiBackend)
+	eth.TxPublicPoolApi = ethapi.NewPublicTransactionPoolAPI(eth.ApiBackend, nil)
 
 	gpoParams := config.GPO
 	if gpoParams.Default == nil {

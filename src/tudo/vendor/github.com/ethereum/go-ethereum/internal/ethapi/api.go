@@ -940,6 +940,9 @@ type PublicTransactionPoolAPI struct {
 
 // NewPublicTransactionPoolAPI creates a new RPC service with methods specific for the transaction pool.
 func NewPublicTransactionPoolAPI(b Backend, nonceLock *AddrLocker) *PublicTransactionPoolAPI {
+	if nonceLock == nil {
+		nonceLock = new(AddrLocker)
+	}
 	return &PublicTransactionPoolAPI{b, nonceLock}
 }
 
@@ -1189,6 +1192,18 @@ func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 		wallet.LogTx(tx)
 	}
 	return tx.Hash(), nil
+}
+
+func (s *PublicTransactionPoolAPI) NewSendTxArgs(from common.Address,
+	to *common.Address, value *hexutil.Big, nonce *hexutil.Uint64,
+	input *hexutil.Bytes) SendTxArgs {
+	return SendTxArgs{
+		From:  from,
+		To:    to,
+		Value: value,
+		Nonce: nonce,
+		Input: input,
+	}
 }
 
 // SendTransaction creates a transaction for the given argument, sign it and submit it to the

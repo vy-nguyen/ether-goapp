@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -460,6 +461,47 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash,
 		result.TransactionIndex = hexutil.Uint(index)
 	}
 	return result
+}
+
+func (api *TudoNodeAPI) PayUserAccount(ctx context.Context, from, fromUuid, to, toUuid,
+	weiAmount, text string) map[string]interface{} {
+
+	out := make(map[string]interface{})
+	ks := api.node.kstore.GetStorageIf()
+
+	fromAddr := common.HexToAddress(from)
+	fromAcct, err := ks.GetAccountOwner(fromAddr.Hex(), fromUuid)
+	if err != nil || fromAcct == nil ||
+		strings.Compare(fromAddr.Hex(), fromAcct.Account) != 0 {
+		out["error"] = fmt.Sprintf("Invalid from account %s", from)
+		return out
+	}
+	toAddr := common.HexToAddress(to)
+	toAcct, err := ks.GetAccountOwner(to, toUuid)
+	if err != nil || toAcct == nil ||
+		strings.Compare(toAddr.Hex(), toAcct.Account) != 0 {
+		out["error"] = fmt.Sprintf("Invalid to account %s", to)
+		return out
+	}
+	value := new(big.Int)
+	value, ok := value.SetString(weiAmount, 10)
+	if !ok {
+		out["error"] = fmt.Sprintf("Invalid amount %s", weiAmount)
+		return out
+	}
+	weiVal := hexutil.Big(*value)
+
+	eth := api.node.GetEthereum()
+	txPool := eth.TxPublicPoolApi
+	sendTx := txPool.NewSendTxArgs(fromAddr, &toAddr, &weiVal, nil, nil)
+
+	txHash, err := txPool.SendTransaction(ctx, sendTx)
+	if err != nil {
+		out["error"] = err.Error()
+	} else {
+		out["txHash"] = txHash.Hex()
+	}
+	return out
 }
 
 /**

@@ -623,6 +623,21 @@ func (ks *SqlKeyStore) GetAccount(addr common.Address) ([]models.Account, error)
 }
 
 /**
+ * GetAccountOwner
+ * ---------------
+ */
+func (ks *SqlKeyStore) GetAccountOwner(addr, owner string) (*models.Account, error) {
+	sql := fmt.Sprintf(
+		"SELECT * from account where account=\"%s\" AND owner_uuid=\"%s\"", addr, owner)
+
+	results, err := ks.getAccountQuery(sql)
+	if err == nil {
+		return &results[0], err
+	}
+	return nil, err
+}
+
+/**
  * GetUserAccount
  * --------------
  */
