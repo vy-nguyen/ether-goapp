@@ -62,4 +62,6 @@ type RPCTransaction struct {
 	V                *hexutil.Big    `json:"v"`
 	R                *hexutil.Big    `json:"r"`
 	S                *hexutil.Big    `json:"s"`
+	FromBalance      *hexutil.Big    `json:"fromBalance"`
+	ToBalance        *hexutil.Big    `json:"toBalance"`
 }

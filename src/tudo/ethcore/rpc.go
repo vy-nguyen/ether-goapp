@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pborman/uuid"
 	"tudo/models"
@@ -192,7 +193,7 @@ func (api *TudoNodeAPI) getDetailTx(ctx context.Context, out map[string]interfac
 		hash := common.HexToHash(t.TxHash)
 		tx, blockHash, blockNo, index := core.GetTransaction(bcDb, hash)
 		if tx != nil {
-			txDetail[i] = newRPCTransaction(tx, blockHash, blockNo, index)
+			txDetail[i] = newRPCTransaction(eth, ctx, tx, blockHash, blockNo, index)
 			block, _ := bcApi.GetBlockByHash(ctx, blockHash, false)
 			txBlocks[i] = block
 		}
@@ -425,8 +426,11 @@ func (api *TudoNodeAPI) ListTrans(ctx context.Context,
 	for _, s := range trans {
 		hash := common.HexToHash(s)
 		tx, blockHash, blockNo, index := core.GetTransaction(bcDb, hash)
+		if tx == nil {
+			tx = eth.ApiBackend.GetPoolTransaction(hash)
+		}
 		if tx != nil {
-			res = append(res, newRPCTransaction(tx, blockHash, blockNo, index))
+			res = append(res, newRPCTransaction(eth, ctx, tx, blockHash, blockNo, index))
 		}
 	}
 	out := make(map[string]interface{})
@@ -434,26 +438,41 @@ func (api *TudoNodeAPI) ListTrans(ctx context.Context,
 	return out
 }
 
-func newRPCTransaction(tx *types.Transaction, blockHash common.Hash,
+func newRPCTransaction(ethApi *eth.Ethereum, ctx context.Context,
+	tx *types.Transaction, blockHash common.Hash,
 	blockNumber uint64, index uint64) *RPCTransaction {
 	var signer types.Signer = types.FrontierSigner{}
 	if tx.Protected() {
 		signer = types.NewEIP155Signer(tx.ChainId())
 	}
+	toBalance := big.NewInt(0)
+	fromBalance := big.NewInt(0)
+
 	from, _ := types.Sender(signer, tx)
 	v, r, s := tx.RawSignatureValues()
 
+	if blockNumber != 0 {
+		blkNo := (rpc.BlockNumber)(blockNumber)
+		state, _, err := ethApi.ApiBackend.StateAndHeaderByNumber(ctx, blkNo)
+		if state != nil && err == nil {
+			toBalance = state.GetBalance(*tx.To())
+			fromBalance = state.GetBalance(from)
+		}
+	}
 	result := &RPCTransaction{
-		From:     from,
-		Gas:      hexutil.Uint64(tx.Gas()),
-		GasPrice: (*hexutil.Big)(tx.GasPrice()),
-		Hash:     tx.Hash(),
-		Input:    hexutil.Bytes(tx.Data()),
-		Nonce:    hexutil.Uint64(tx.Nonce()),
-		To:       tx.To(),
-		Value:    (*hexutil.Big)(tx.Value()), V: (*hexutil.Big)(v),
-		R: (*hexutil.Big)(r),
-		S: (*hexutil.Big)(s),
+		From:        from,
+		Gas:         hexutil.Uint64(tx.Gas()),
+		GasPrice:    (*hexutil.Big)(tx.GasPrice()),
+		Hash:        tx.Hash(),
+		Input:       hexutil.Bytes(tx.Data()),
+		Nonce:       hexutil.Uint64(tx.Nonce()),
+		To:          tx.To(),
+		Value:       (*hexutil.Big)(tx.Value()),
+		V:           (*hexutil.Big)(v),
+		R:           (*hexutil.Big)(r),
+		S:           (*hexutil.Big)(s),
+		ToBalance:   (*hexutil.Big)(toBalance),
+		FromBalance: (*hexutil.Big)(fromBalance),
 	}
 	if blockHash != (common.Hash{}) {
 		result.BlockHash = blockHash
