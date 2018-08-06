@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
+	// "path/filepath"
 	"reflect"
 	"unicode"
 
@@ -102,12 +102,15 @@ func loadConfig(file string, cfg *gethConfig) error {
 		err = errors.New(file + ", " + err.Error())
 	}
 	if err == nil {
-		peerCfg := filepath.Join(filepath.Dir(file), cfg.TudoConfig.PeerCfgFile)
-		peer := p2p.Config{}
-		err = loadPeerConfig(peerCfg, &peer)
-		if err == nil {
-			mergeP2PConfig(&cfg.Node.P2P, &peer)
-		}
+		return nil
+		/*
+			peerCfg := filepath.Join(filepath.Dir(file), cfg.TudoConfig.PeerCfgFile)
+			peer := p2p.Config{}
+			err = loadPeerConfig(peerCfg, &peer)
+			if err == nil {
+				mergeP2PConfig(&cfg.Node.P2P, &peer)
+			}
+		*/
 	}
 	return err
 }
